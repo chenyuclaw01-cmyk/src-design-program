@@ -31,36 +31,41 @@ SRC (Steel Reinforced Concrete) 鋼骨鋼筋混凝土結構設計程式，依據
 | v2.0 | 自動斷面選取、自訂斷面 |
 | v3.0 | 完整計算報告、規範來源 |
 
-## 安裝方式
+## 🚀 部署 Streamlit Cloud
+
+### 方法一：手動部署
+
+1. 前往 [Streamlit Cloud](https://share.streamlit.io/)
+2. 登入 GitHub 帳號
+3. 點擊 "New app"
+4. 選擇 Repository: `chenyuclaw01-cmyk/src-design-program`
+5. Branch: `main`
+6. Main file path: `src_design_web.py`
+7. 點擊 "Deploy"
+
+### 方法二：GitHub Actions 自動部署
+
+本專案已支援 GitHub Actions，push 到 main 分支後會自動部署。
+
+## 本地運行
 
 ```bash
 # 複製專案
-git clone https://github.com/chenyuclaw01-cmyk/src-design.git
-cd src-design
+git clone https://github.com/chenyuclaw01-cmyk/src-design-program.git
+cd src-design-program
 
-# 安裝依賴 (Web UI 需要)
-pip install streamlit
+# 安裝依賴
+pip install -r requirements.txt
+
+# 啟動 Web UI
+streamlit run src_design_web.py
 ```
-
-## 使用方式
 
 ### 命令列版本
 
 ```bash
 # v3.0 完整版 (推薦)
 python3 src_design_v3.py
-
-# v2.0 版
-python3 src_design_v2.py
-
-# v1.0 版
-python3 src_design.py
-```
-
-### Web UI 版本
-
-```bash
-streamlit run src_design_web.py
 ```
 
 ## 計算方法
@@ -94,26 +99,6 @@ $$\phi_b M_n = \phi_{bs} M_{ns} + \phi_{brc} M_{nrc}$$
 
 ### 箱型鋼
 - BOX200x200x9x9 ~ BOX500x500x16x16
-
-## 輸出範例
-
-```
-===========================================================================
-         SRC 鋼骨鋼筋混凝土結構設計計算書
-===========================================================================
-
-一、设计条件
-【材料】
-  鋼骨 Fys = 2800 kgf/cm²
-  鋼筋 Fy  = 4200 kgf/cm²
-  混凝土 fc'= 280 kgf/cm²
-
-二、彎矩強度計算 (強度疊加法)
-【規範來源】鋼骨鋼筋混凝土構造設計規範與解說 第五章 5.4.1 節
-  公式：φbMn = φbsMns + φbrcMnrc
-
-  φbMn = 23.94 tf-m
-```
 
 ## ⚠️ 重要提醒
 
