@@ -13,10 +13,10 @@ from dataclasses import dataclass
 import io
 import datetime
 
-matplotlib.rcParams['font.sans-serif'] = ['Arial Unicode MS', 'PingFang TC', 'Microsoft JhengHei', 'DejaVu Sans']
+matplotlib.rcParams['font.sans-serif'] = ['DejaVu Sans']
 matplotlib.rcParams['axes.unicode_minus'] = False
 import matplotlib
-matplotlib.rcParams['font.sans-serif'] = ['Arial Unicode MS', 'PingFang TC', 'DejaVu Sans']
+matplotlib.rcParams['font.sans-serif'] = ['DejaVu Sans']
 
 # ============================================================
 # 材料資料類別
