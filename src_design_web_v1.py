@@ -5,18 +5,12 @@ SRC 鋼骨鋼筋混凝土結構設計程式
 """
 import streamlit as st
 import math
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-from matplotlib.patches import Rectangle, Circle, FancyArrowPatch
+from matplotlib.patches import Rectangle, Circle, Patch
 import numpy as np
 from dataclasses import dataclass
-import io
-import datetime
-
-matplotlib.rcParams['font.sans-serif'] = ['DejaVu Sans']
-matplotlib.rcParams['axes.unicode_minus'] = False
-import matplotlib
-matplotlib.rcParams['font.sans-serif'] = ['DejaVu Sans']
 
 # ============================================================
 # 材料資料類別
@@ -473,10 +467,10 @@ def draw_beam_section(fig, ax, steel: SteelSection, b, h, cover,
 
     # 圖例
     legend_elements = [
-        mpatches.Patch(fc='#D0D0D0', ec='black', label='混凝土'),
-        mpatches.Patch(fc='#404040', ec='black', label='型鋼'),
-        mpatches.Patch(fc='#CC0000', ec='black', label=f'上筋 {top_rebars}-{top_size}'),
-        mpatches.Patch(fc='#0044CC', ec='black', label=f'下筋 {bot_rebars}-{bot_size}'),
+        Patch(fc='#D0D0D0', ec='black', label='混凝土'),
+        Patch(fc='#404040', ec='black', label='型鋼'),
+        Patch(fc='#CC0000', ec='black', label=f'上筋 {top_rebars}-{top_size}'),
+        Patch(fc='#0044CC', ec='black', label=f'下筋 {bot_rebars}-{bot_size}'),
     ]
     ax.legend(handles=legend_elements, loc='lower right', fontsize=8)
 
@@ -570,9 +564,9 @@ def draw_column_section(fig, ax, steel: SteelSection, b, h, cover,
                  fontsize=10, fontweight='bold')
 
     legend_elements = [
-        mpatches.Patch(fc='#D0D0D0', ec='black', label='混凝土'),
-        mpatches.Patch(fc='#404040', ec='black', label='型鋼'),
-        mpatches.Patch(fc='#CC0000', ec='black', label=f'縱筋 {num_bars}-{bar_size}'),
+        Patch(fc='#D0D0D0', ec='black', label='混凝土'),
+        Patch(fc='#404040', ec='black', label='型鋼'),
+        Patch(fc='#CC0000', ec='black', label=f'縱筋 {num_bars}-{bar_size}'),
     ]
     ax.legend(handles=legend_elements, loc='lower right', fontsize=8)
 
