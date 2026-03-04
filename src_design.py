@@ -601,19 +601,29 @@ class SRCColumn(SRCSection):
             'ratio_rc': stiff['ratio_rc']
         }
     
-    def design_shear_strength(self, Vu: float, debug: bool = False) -> dict:
+    def design_shear_strength(self, Vu: float, Pu: float = 0, debug: bool = False) -> dict:
         """
         設計剪力強度
         
-        參考：鋼骨鋼筋混凝土構造設計規範與解說 7.6節
+        參考：鋼骨鋼筋混凝土構造設計規範與解說 5.5節
         
         設計剪力 Vu 由鋼骨與 RC 部分共同分擔：
         - 鋼骨部分：Vns = 0.6 × fys × Aw
-        - RC 部分：Vc = 0.17 × √f'c × b × d
+        - RC 部分：Vc = 0.17 × √f'c × b × d × √(1 ± Pu/(14Ag))
         
         剪力分配比例依彎矩剛度比例分配
+        
+        參數：
+        - Vu: 設計剪力 (tf)
+        - Pu: 設計軸力 (tf)，壓力為正，拉力為負
         """
         mat = self.mat
+        
+        # ===== 計算剛度與分配比例 =====
+        stiff = self.calculate_stiffness()
+        
+        # RC 部分分擔的軸力 (tf → kgf)
+        Purc = stiff['ratio_rc'] * Pu * 1000  # kgf
         
         # ===== 計算彎矩強度用於剪力分配 =====
         # 鋼骨部分彎矩強度
@@ -660,11 +670,37 @@ class SRCColumn(SRCSection):
             print(f"  需要承受剪力 Vu = {Vu_s:.2f} tf")
         
         # ===== RC 部分剪力強度 =====
-        # Vc = 0.17 × √f'c × b × d (ACI 318 簡化)
+        # Vc = 0.17 × √f'c × b × d × √(1 ± Pu/(14Ag))
+        # 參考：鋼骨鋼筋混凝土構造設計規範與解說 5.5.2節
         b = self.b  # cm
         d_rc_cm = d_rc / 10  # cm
+        Ag = self.b * self.h  # cm² (全斷面積)
         
-        Vc = 0.17 * math.sqrt(mat.fc) * b * d_rc_cm  # kgf
+        # 基本 Vc
+        Vc_base = 0.17 * math.sqrt(mat.fc) * b * d_rc_cm  # kgf
+        
+        # 軸力影響修正
+        if Purc != 0:
+            # Pu 為壓力時增加 Vc，為拉力時減少 Vc
+            # 公式：√(1 ± Pu/(14Ag))，Pu 為 kgf
+            factor = math.sqrt(1 + Purc / (14 * Ag * 1000))  # Purc 已轉換為 kgf
+            Vc = Vc_base * factor  # kgf
+            if debug:
+                print(f"\n=== RC 部分剪力 (含軸力影響) ===")
+                print(f"  混凝土寬度 b = {b} cm")
+                print(f"  有效深度 d = {d_rc_cm:.1f} cm")
+                print(f"  全斷面積 Ag = {Ag} cm²")
+                print(f"  RC 部分軸力 Purc = {Purc/1000:.2f} tf ({'壓力' if Purc > 0 else '拉力'})")
+                print(f"  軸力影響係數 = √(1 + {Purc/(14*Ag*1000):.4f}) = {factor:.3f}")
+                print(f"  Vc = 0.17√{mat.fc} × {b} × {d_rc_cm:.1f} × {factor:.3f} = {Vc/1000:.2f} tf")
+        else:
+            Vc = Vc_base  # kgf
+            if debug:
+                print(f"\n=== RC 部分剪力 ===")
+                print(f"  混凝土寬度 b = {b} cm")
+                print(f"  有效深度 d = {d_rc_cm:.1f} cm")
+                print(f"  Vc = 0.17√{mat.fc} × {b} × {d_rc_cm:.1f} = {Vc/1000:.2f} tf")
+        
         phi_vrc = 0.75
         phi_Vc = phi_vrc * Vc / 1000  # tf
         
@@ -672,10 +708,6 @@ class SRCColumn(SRCSection):
         Vu_rc = Vu * Vrc_ratio  # tf
         
         if debug:
-            print(f"\n=== RC 部分剪力 ===")
-            print(f"  混凝土寬度 b = {b} cm")
-            print(f"  有效深度 d = {d_rc_cm:.1f} cm")
-            print(f"  Vc = 0.17√{mat.fc} × {b} × {d_rc_cm:.1f} = {Vc/1000:.2f} tf")
             print(f"  設計剪力強度 φVc = {phi_Vc:.2f} tf")
             print(f"  需要承受剪力 Vu = {Vu_rc:.2f} tf")
         
@@ -707,6 +739,8 @@ class SRCColumn(SRCSection):
             'rc_shear_safe': rc_shear_safe,
             'phi_Vn_total': phi_Vn_total,  # tf
             'Vu': Vu,                    # tf
+            'Pu': Pu,                    # tf
+            'Purc': Purc / 1000,         # tf
             'is_safe': total_shear_safe,
             'Vns_ratio': Vns_ratio,
             'Vrc_ratio': Vrc_ratio
