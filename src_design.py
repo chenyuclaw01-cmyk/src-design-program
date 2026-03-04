@@ -365,9 +365,13 @@ class SRCColumn(SRCSection):
         self.K = K          # 有效長度因數
         
         # 計算斷面積
-        # 混凝土斷面積
-        self.Ac = (width * depth - 
-                   self.steel['A']) / 100  # cm² (鋼骨面積原為 cm²)
+        # 混凝土斷面積 (RC 部分)
+        # Ac = 總面積 - 鋼骨投影面積
+        # 鋼骨投影面積 = bf × d (mm → cm²)
+        bf = self.steel['bf'] / 10  # cm
+        d = self.steel['d'] / 10   # cm
+        steel_projected_area = bf * d  # cm²
+        self.Ac = width * depth - steel_projected_area  # cm²
         
         # 鋼骨斷面積
         self.As_steel = self.steel['A']  # cm²
