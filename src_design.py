@@ -627,7 +627,7 @@ class SRCColumn(SRCSection):
         # 剪力分配依彎矩強度比例：Vu_s = (Mns/Mn) × Vu
         # 計算鋼骨部分彎矩強度
         Z_s = self.steel['Zx']  # cm³
-        Mns = Z_s * mat.fy_steel / 1e6  # tf-m
+        Mns = Z_s * mat.fy_steel / 1e5  # tf-m (除以 100,000 從 kgf-cm 轉為 tf-m)
         
         # 計算 RC 部分彎矩強度
         d_rc = self.h * 10 - self.cover * 10  # mm
