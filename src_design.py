@@ -625,11 +625,28 @@ class SRCColumn(SRCSection):
         # RC 部分分擔的軸力 (tf → kgf)
         Purc = stiff['ratio_rc'] * Pu * 1000  # kgf
         
-        # ===== 剪力分配比例 (依彎矩剛度比例) =====
-        # 參考：鋼骨鋼筋混凝土構造設計規範與解說 7.3.1
-        # 使用與軸力、彎矩分配相同之剛度比例
-        Vns_ratio = stiff['ratio_s']
-        Vrc_ratio = stiff['ratio_rc']
+        # ===== 剪力分配比例 (依彎矩強度比例) =====
+        # 參考：鋼骨鋼筋混凝土構造設計規範與解說 5.5節 (公式 5.5-1, 5.5-2)
+        # 剪力分配依彎矩強度比例：Vu_s = (Mns/Mn) × Vu
+        # 計算鋼骨部分彎矩強度
+        Z_s = self.steel['Zx']  # cm³
+        Mns = Z_s * mat.fy_steel / 1e6  # tf-m
+        
+        # 計算 RC 部分彎矩強度
+        d_rc = self.h * 10 - self.cover * 10  # mm
+        a_rc = self.As * mat.fy_rebar / (0.85 * mat.fc * self.b * 10)  # cm
+        a_rc_mm = a_rc * 10
+        Mnrc = self.As * mat.fy_rebar * (d_rc - a_rc_mm/2) / 1e6  # tf-m
+        
+        Mn_total = Mns + Mnrc  # 總彎矩強度
+        
+        # 剪力分配比例 (依彎矩強度比例)
+        if Mn_total > 0:
+            Vns_ratio = Mns / Mn_total
+            Vrc_ratio = Mnrc / Mn_total
+        else:
+            Vns_ratio = 0.5
+            Vrc_ratio = 0.5
         
         # ===== 鋼骨部分剪力強度 =====
         # Vns = 0.6 × fys × Aw
@@ -729,7 +746,10 @@ class SRCColumn(SRCSection):
             'Purc': Purc / 1000,         # tf
             'is_safe': total_shear_safe,
             'Vns_ratio': Vns_ratio,
-            'Vrc_ratio': Vrc_ratio
+            'Vrc_ratio': Vrc_ratio,
+            'Mns': Mns,                  # tf-m
+            'Mnrc': Mnrc,                # tf-m
+            'Mn_total': Mn_total         # tf-m
         }
     
     def shear_analysis_summary(self, Vu: float, Pu: float = 0) -> str:
@@ -764,6 +784,11 @@ class SRCColumn(SRCSection):
 ║   鋼骨 Fys = {mat.fy_steel} kgf/cm²                             ║
 ║   鋼筋 fy = {mat.fy_rebar} kgf/cm²                               ║
 ║   混凝土 f'c = {mat.fc} kgf/cm²                                 ║
+╠══════════════════════════════════════════════════════════════╣
+║ 【彎矩強度】                                                  ║
+║   鋼骨 Mns = {result['Mns']:.2f} tf-m                               ║
+║   RC Mnrc = {result['Mnrc']:.2f} tf-m                             ║
+║   總 Mn = {result['Mn_total']:.2f} tf-m                              ║
 ╠══════════════════════════════════════════════════════════════╣
 ║ 【外力作用】                                                  ║
 ║   設計剪力 Vu = {Vu:.2f} tf                                      ║
