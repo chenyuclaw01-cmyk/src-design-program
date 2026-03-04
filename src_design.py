@@ -625,26 +625,11 @@ class SRCColumn(SRCSection):
         # RC 部分分擔的軸力 (tf → kgf)
         Purc = stiff['ratio_rc'] * Pu * 1000  # kgf
         
-        # ===== 計算彎矩強度用於剪力分配 =====
-        # 鋼骨部分彎矩強度
-        Z_s = self.steel['Zx']  # cm³
-        Mns = Z_s * mat.fy_steel / 1e6  # tf-m
-        
-        # RC 部分彎矩強度 (簡化計算)
-        d_rc = self.h * 10 - self.cover * 10  # mm
-        a_rc = self.As * mat.fy_rebar / (0.85 * mat.fc * self.b * 10)  # cm
-        a_rc_mm = a_rc * 10
-        Mnrc = self.As * mat.fy_rebar * (d_rc - a_rc_mm/2) / 1e6  # tf-m
-        
-        Mn_total = Mns + Mnrc
-        
-        # 剪力分配比例 (依彎矩剛度)
-        if Mn_total > 0:
-            Vns_ratio = Mns / Mn_total
-            Vrc_ratio = Mnrc / Mn_total
-        else:
-            Vns_ratio = 0.5
-            Vrc_ratio = 0.5
+        # ===== 剪力分配比例 (依彎矩剛度比例) =====
+        # 參考：鋼骨鋼筋混凝土構造設計規範與解說 7.3.1
+        # 使用與軸力、彎矩分配相同之剛度比例
+        Vns_ratio = stiff['ratio_s']
+        Vrc_ratio = stiff['ratio_rc']
         
         # ===== 鋼骨部分剪力強度 =====
         # Vns = 0.6 × fys × Aw
@@ -673,6 +658,7 @@ class SRCColumn(SRCSection):
         # Vc = 0.17 × √f'c × b × d × √(1 ± Pu/(14Ag))
         # 參考：鋼骨鋼筋混凝土構造設計規範與解說 5.5.2節
         b = self.b  # cm
+        d_rc = self.h * 10 - self.cover * 10  # mm
         d_rc_cm = d_rc / 10  # cm
         Ag = self.b * self.h  # cm² (全斷面積)
         
@@ -745,6 +731,68 @@ class SRCColumn(SRCSection):
             'Vns_ratio': Vns_ratio,
             'Vrc_ratio': Vrc_ratio
         }
+    
+    def shear_analysis_summary(self, Vu: float, Pu: float = 0) -> str:
+        """
+        產生 SRC 柱剪力分析成果摘要
+        
+        參考：鋼骨鋼筋混凝土構造設計規範與解說 5.5節
+        """
+        mat = self.mat
+        result = self.design_shear_strength(Vu=Vu, Pu=Pu)
+        
+        # 取得鋼骨名稱
+        steel_name = list(STEEL_SECTIONS.keys())[
+            list(STEEL_SECTIONS.values()).index(self.steel)
+        ]
+        
+        # 計算軸力狀態
+        pu_status = "軸壓力" if Pu > 0 else ("軸拉力" if Pu < 0 else "無軸力")
+        
+        summary = f"""
+╔══════════════════════════════════════════════════════════════╗
+║              SRC 柱 剪力分析成果摘要                         ║
+╠══════════════════════════════════════════════════════════════╣
+║ 【設計條件】                                                  ║
+║   鋼骨斷面: {steel_name:<20}                   ║
+║   混凝土尺寸: {self.b}×{self.h} cm (寬×深)                        ║
+║   保護層: {self.cover} cm                                             ║
+║   鋼筋面積: As = {self.As:.2f} cm²                                ║
+║   柱長度: L = {self.L} cm                                        ║
+╠══════════════════════════════════════════════════════════════╣
+║ 【材料性質】                                                  ║
+║   鋼骨 Fys = {mat.fy_steel} kgf/cm²                             ║
+║   鋼筋 fy = {mat.fy_rebar} kgf/cm²                               ║
+║   混凝土 f'c = {mat.fc} kgf/cm²                                 ║
+╠══════════════════════════════════════════════════════════════╣
+║ 【外力作用】                                                  ║
+║   設計剪力 Vu = {Vu:.2f} tf                                      ║
+║   設計軸力 Pu = {Pu:.2f} tf ({pu_status})                    ║
+╠══════════════════════════════════════════════════════════════╣
+║ 【鋼骨部分剪力】                                              ║
+║   分配比例: {result['Vns_ratio']*100:.1f}%                                              ║
+║   需要剪力 Vu = {result['Vu_s']:.2f} tf                               ║
+║   腹板面積 Aw = {self.steel['tw']*self.steel['d']/100:.2f} cm²                                 ║
+║   標稱剪力 Vns = {result['Vns']:.2f} tf                             ║
+║   設計剪力 φVns = {result['phi_Vns']:.2f} tf                          ║
+║   檢核: {result['phi_Vns']:.2f} ≥ {result['Vu_s']:.2f} → {'✓ 安全' if result['steel_shear_safe'] else '✗ 不安全'}                ║
+╠══════════════════════════════════════════════════════════════╣
+║ 【RC 部分剪力】                                               ║
+║   分配比例: {result['Vrc_ratio']*100:.1f}%                                             ║
+║   需要剪力 Vu = {result['Vu_rc']:.2f} tf                              ║
+║   有效深度 d = {self.h*10 - self.cover*10} mm                                       ║
+║   混凝土寬度 b = {self.b} cm                                          ║
+║   標稱剪力 Vc = {result['Vc']:.2f} tf                               ║
+║   設計剪力 φVc = {result['phi_Vc']:.2f} tf                            ║
+║   檢核: {result['phi_Vc']:.2f} ≥ {result['Vu_rc']:.2f} → {'✓ 安全' if result['rc_shear_safe'] else '✗ 不安全'}                ║
+╠══════════════════════════════════════════════════════════════╣
+║ 【總檢核】                                                    ║
+║   總設計剪力 φVn = {result['phi_Vn_total']:.2f} tf                        ║
+║   需要剪力 Vu = {Vu:.2f} tf                                      ║
+║   結論: {'✓ 安全' if result['is_safe'] else '✗ 不安全'}                                    ║
+╚══════════════════════════════════════════════════════════════╝
+"""
+        return summary
 
 
 # ============================================================================
