@@ -600,6 +600,117 @@ class SRCColumn(SRCSection):
             'ratio_s': stiff['ratio_s'],
             'ratio_rc': stiff['ratio_rc']
         }
+    
+    def design_shear_strength(self, Vu: float, debug: bool = False) -> dict:
+        """
+        設計剪力強度
+        
+        參考：鋼骨鋼筋混凝土構造設計規範與解說 7.6節
+        
+        設計剪力 Vu 由鋼骨與 RC 部分共同分擔：
+        - 鋼骨部分：Vns = 0.6 × fys × Aw
+        - RC 部分：Vc = 0.17 × √f'c × b × d
+        
+        剪力分配比例依彎矩剛度比例分配
+        """
+        mat = self.mat
+        
+        # ===== 計算彎矩強度用於剪力分配 =====
+        # 鋼骨部分彎矩強度
+        Z_s = self.steel['Zx']  # cm³
+        Mns = Z_s * mat.fy_steel / 1e6  # tf-m
+        
+        # RC 部分彎矩強度 (簡化計算)
+        d_rc = self.h * 10 - self.cover * 10  # mm
+        a_rc = self.As * mat.fy_rebar / (0.85 * mat.fc * self.b * 10)  # cm
+        a_rc_mm = a_rc * 10
+        Mnrc = self.As * mat.fy_rebar * (d_rc - a_rc_mm/2) / 1e6  # tf-m
+        
+        Mn_total = Mns + Mnrc
+        
+        # 剪力分配比例 (依彎矩剛度)
+        if Mn_total > 0:
+            Vns_ratio = Mns / Mn_total
+            Vrc_ratio = Mnrc / Mn_total
+        else:
+            Vns_ratio = 0.5
+            Vrc_ratio = 0.5
+        
+        # ===== 鋼骨部分剪力強度 =====
+        # Vns = 0.6 × fys × Aw
+        tw = self.steel['tw'] / 10  # cm
+        d_steel = self.steel['d'] / 10  # cm
+        Aw = tw * d_steel  # 腹板面積 cm²
+        
+        Vns = 0.6 * mat.fy_steel * Aw  # kgf
+        phi_vs = 0.90
+        phi_Vns = phi_vs * Vns / 1000  # tf
+        
+        # 鋼骨部分需承受剪力
+        Vu_s = Vu * Vns_ratio  # tf
+        
+        if debug:
+            print(f"=== 鋼骨部分剪力 ===")
+            print(f"  鋼骨斷面: {list(STEEL_SECTIONS.keys())[list(STEEL_SECTIONS.values()).index(self.steel)]}")
+            print(f"  腹板厚度 tw = {tw:.2f} cm")
+            print(f"  腹板高度 d = {d_steel:.1f} cm")
+            print(f"  腹板面積 Aw = {Aw:.2f} cm²")
+            print(f"  標稱剪力強度 Vns = {Vns/1000:.2f} tf")
+            print(f"  設計剪力強度 φVns = {phi_Vns:.2f} tf")
+            print(f"  需要承受剪力 Vu = {Vu_s:.2f} tf")
+        
+        # ===== RC 部分剪力強度 =====
+        # Vc = 0.17 × √f'c × b × d (ACI 318 簡化)
+        b = self.b  # cm
+        d_rc_cm = d_rc / 10  # cm
+        
+        Vc = 0.17 * math.sqrt(mat.fc) * b * d_rc_cm  # kgf
+        phi_vrc = 0.75
+        phi_Vc = phi_vrc * Vc / 1000  # tf
+        
+        # RC 部分需承受剪力
+        Vu_rc = Vu * Vrc_ratio  # tf
+        
+        if debug:
+            print(f"\n=== RC 部分剪力 ===")
+            print(f"  混凝土寬度 b = {b} cm")
+            print(f"  有效深度 d = {d_rc_cm:.1f} cm")
+            print(f"  Vc = 0.17√{mat.fc} × {b} × {d_rc_cm:.1f} = {Vc/1000:.2f} tf")
+            print(f"  設計剪力強度 φVc = {phi_Vc:.2f} tf")
+            print(f"  需要承受剪力 Vu = {Vu_rc:.2f} tf")
+        
+        # ===== 總檢核 =====
+        # 鋼骨部分檢核
+        steel_shear_safe = phi_Vns >= Vu_s
+        
+        # RC 部分檢核
+        rc_shear_safe = phi_Vc >= Vu_rc
+        
+        # 總剪力強度
+        phi_Vn_total = phi_Vns + phi_Vc
+        total_shear_safe = phi_Vn_total >= Vu
+        
+        if debug:
+            print(f"\n=== 剪力檢核結果 ===")
+            print(f"  鋼骨部分: φVns = {phi_Vns:.2f} tf ≥ Vu = {Vu_s:.2f} tf → {'✓ 安全' if steel_shear_safe else '✗ 不安全'}")
+            print(f"  RC 部分: φVc = {phi_Vc:.2f} tf ≥ Vu = {Vu_rc:.2f} tf → {'✓ 安全' if rc_shear_safe else '✗ 不安全'}")
+            print(f"  總計: φVn = {phi_Vn_total:.2f} tf ≥ Vu = {Vu:.2f} tf → {'✓ 安全' if total_shear_safe else '✗ 不安全'}")
+        
+        return {
+            'Vns': Vns / 1000,           # tf
+            'phi_Vns': phi_Vns,          # tf
+            'Vu_s': Vu_s,                # tf
+            'steel_shear_safe': steel_shear_safe,
+            'Vc': Vc / 1000,             # tf
+            'phi_Vc': phi_Vc,            # tf
+            'Vu_rc': Vu_rc,              # tf
+            'rc_shear_safe': rc_shear_safe,
+            'phi_Vn_total': phi_Vn_total,  # tf
+            'Vu': Vu,                    # tf
+            'is_safe': total_shear_safe,
+            'Vns_ratio': Vns_ratio,
+            'Vrc_ratio': Vrc_ratio
+        }
 
 
 # ============================================================================
