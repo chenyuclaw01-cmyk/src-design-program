@@ -1290,7 +1290,13 @@ def gen_pm_curve(mat, steel, b, h, cover, As, axis='X', pts=60):
     
     # 選擇對應的塑性斷面模數
     if axis.upper() == 'Y':
-        Z = steel.Zy if steel.Zy > 0 else steel.Zx * 0.5  # Y軸用 Zy
+        # Y軸：如果是 BOX 斷面，Zy ≈ Zx；如果是 H 型鋼，Zy < Zx
+        if steel.Zy > 0:
+            Z = steel.Zy
+        elif steel.section_type == 'BOX':
+            Z = steel.Zx  # BOX 斷面對稱，Zy ≈ Zx
+        else:
+            Z = steel.Zx * 0.6  # H型鋼約 60%
     else:
         Z = steel.Zx  # X軸用 Zx
     
