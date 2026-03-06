@@ -867,7 +867,29 @@ def calc_column(mat: Material, steel: SteelSection, b, h, cover, As, Pu,
         lines.append(f"  φVns={phi_Vns_col:.3f} tf，φVnrc={phi_Vnrc_col:.3f} tf，φVn={phi_Vn_col:.3f} tf（未輸入Vu）")
 
     # ══════════════════════════════════════════════════════
-    # 八、結論
+    # ══════════════════════════════════════════════════════════════
+    # 八、P-M 互制曲線資料
+    # ══════════════════════════════════════════════════════════════
+    lines.append("\n【八、P-M 互制曲線資料】")
+    lines.append("=" * 60)
+    curve_x = gen_pm_curve(mat, steel, b, h, cover, As, axis='X')
+    curve_y = gen_pm_curve(mat, steel, b, h, cover, As, axis='Y')
+    lines.append(f"  斷面：{steel.name} / b×h = {b}×{h} cm")
+    lines.append(f"  X軸曲線（強軸，Zx={steel.Zx:.1f} cm³）：")
+    idx_list = [0, len(curve_x)//4, len(curve_x)//2, 3*len(curve_x)//4, len(curve_x)-1]
+    for idx in idx_list:
+        p, m = curve_x[idx]
+        lines.append(f"    P={p:7.2f} tf, M={m:7.2f} tf-m")
+    lines.append(f"  Y軸曲線（弱軸，Zy={steel.Zy:.1f} cm³）：")
+    for idx in idx_list:
+        p, m = curve_y[idx]
+        lines.append(f"    P={p:7.2f} tf, M={m:7.2f} tf-m")
+    lines.append(f"  設計點：Pu={Pu:.2f} tf, Mux={Mux:.2f} tf-m, Muy={Muy:.2f} tf-m")
+
+    # ══════════════════════════════════════════════════════════════
+    # 九、結論
+    # ══════════════════════════════════════════════════════════════
+    # 九、結論
     # ══════════════════════════════════════════════════════
     is_safe = (chk_s <= 1.0 and chk_r <= 1.0 and ok_pu
                and ok_mu and ok_rho and ok_rho_max and ok_vu)
@@ -916,7 +938,11 @@ def calc_column(mat: Material, steel: SteelSection, b, h, cover, As, Pu,
         'phi_Vn': phi_Vn_col, 'phi_Vnrc': phi_Vnrc_col, 'phi_Vns': phi_Vns_col,
         'Vu': Vu, 'dc_vu': dc_vu, 'ok_vu': ok_vu,
         'dc_vu_s': dc_vu_s, 'ok_vu_s': ok_vu_s,
-        'dc_vu_rc': dc_vu_rc, 'ok_vu_rc': ok_vu_rc
+        'dc_vu_rc': dc_vu_rc, 'ok_vu_rc': ok_vu_rc,
+        # P-M曲線資料
+        'pm_curve_x': gen_pm_curve(mat, steel, b, h, cover, As, axis='X'),
+        'pm_curve_y': gen_pm_curve(mat, steel, b, h, cover, As, axis='Y'),
+        'pm_b': b, 'pm_h': h, 'pm_As': As, 'pm_stl_name': steel.name
     }
     return '\n'.join(lines), result
 
@@ -1232,13 +1258,24 @@ def calc_column(mat: Material, steel: SteelSection, b, h, cover, As, Pu,
 # ============================================================
 # P-M 曲線生成
 # ============================================================
-def gen_pm_curve(mat, steel, b, h, cover, As, pts=60):
+def gen_pm_curve(mat, steel, b, h, cover, As, axis='X', pts=60):
+    """
+    產生 SRC 柱 P-M 互制曲線
+    axis: 'X' = X軸（強軸）, 'Y' = Y軸（弱軸）
+    """
     bf_cm = steel.bf / 10
     d_cm  = steel.d  / 10
     tf_cm = steel.tf / 10
     tw_cm = steel.tw / 10
     Ac = b * h - steel.A
     d_rc = h - cover
+    
+    # 選擇對應的塑性斷面模數
+    if axis.upper() == 'Y':
+        Z = steel.Zy if steel.Zy > 0 else steel.Zx * 0.5  # Y軸用 Zy
+    else:
+        Z = steel.Zx  # X軸用 Zx
+    
     Pmax_t = -(mat.fy_rebar * As + mat.fy_steel * steel.A) / 1000
     Pmax_c = (0.85 * mat.fc * Ac + mat.fy_rebar * As + mat.fy_steel * steel.A) / 1000
     curve = []
@@ -1247,7 +1284,7 @@ def gen_pm_curve(mat, steel, b, h, cover, As, pts=60):
         P = Pmax_t + (Pmax_c - Pmax_t) * r
         if 0.1 < r < 0.9:
             M = (0.5 * As * mat.fy_rebar * (d_rc - cover) / 1e5
-                 + 0.5 * mat.fy_steel * steel.Zx / 1e5) * math.sin(r * math.pi)
+                 + 0.5 * mat.fy_steel * Z / 1e5) * math.sin(r * math.pi)
         else:
             M = 0
         curve.append((P, M))
@@ -1688,9 +1725,9 @@ with st.sidebar:
     for n, a in REBAR_DB.items():
         st.markdown(f"- {n}: {a} cm²")
 
-# 主分頁
-tab_beam, tab_col, tab_pm = st.tabs([
-    "📐 SRC梁設計", "🏛️ SRC柱設計", "📈 P-M曲線"
+# 主分頁（柱設計包含P-M曲線）
+tab_beam, tab_col = st.tabs([
+    "📐 SRC梁設計", "🏛️ SRC柱設計"
 ])
 
 # ===== 梁設計 =====
@@ -1807,9 +1844,9 @@ with tab_col:
                                file_name="SRC柱計算書.html", mime="text/html",
                                key='dl_col_html', use_container_width=True)
 
-# ===== P-M 曲線 =====
-with tab_pm:
-    st.header("📈 SRC 柱 P-M 互制曲線")
+# ===== P-M 曲線（雙向彎矩）=====
+    st.divider()
+    st.header("📈 SRC 柱 P-M 互制曲線（雙向彎矩）")
     c1, c2 = st.columns([1, 2])
     with c1:
         pm_stl = steel_section_selector('pm', filter_type='all',
@@ -1822,21 +1859,47 @@ with tab_pm:
         with c4: pm_s = st.selectbox("規格", list(REBAR_DB.keys()), index=3, key='pm_s')
         pm_As = pm_n * REBAR_DB[pm_s]
         pm_Pu = st.number_input("設計 Pu (tf)", value=200.0, key='pm_Pu')
-        pm_Mu = st.number_input("設計 Mu (tf-m)", value=30.0, key='pm_Mu')
+        # 雙向彎矩輸入
+        pm_mx_my = st.columns(2)
+        with pm_mx_my[0]:
+            pm_Mux = st.number_input("Mux (tf-m)", value=30.0, key='pm_Mux')
+        with pm_mx_my[1]:
+            pm_Muy = st.number_input("Muy (tf-m)", value=0.0, key='pm_Muy')
     with c2:
-        curve = gen_pm_curve(mat, pm_stl, pm_b, pm_h, pm_c, pm_As)
-        Pv = [p[0] for p in curve]
-        Mv = [p[1] for p in curve]
+        # 產生 X軸 和 Y軸 兩條曲線
+        curve_x = gen_pm_curve(mat, pm_stl, pm_b, pm_h, pm_c, pm_As, axis='X')
+        curve_y = gen_pm_curve(mat, pm_stl, pm_b, pm_h, pm_c, pm_As, axis='Y')
+        Pv_x = [p[0] for p in curve_x]
+        Mv_x = [p[1] for p in curve_x]
+        Pv_y = [p[0] for p in curve_y]
+        Mv_y = [p[1] for p in curve_y]
+        
         fig, ax = plt.subplots(figsize=(9, 7))
-        ax.plot(Mv, Pv, 'b-', lw=2.5, label='P-M 互制曲線')
-        ax.scatter([pm_Mu], [pm_Pu], c='red', s=120, zorder=5,
-                   label=f'設計點 ({pm_Pu:.0f} tf, {pm_Mu:.0f} tf-m)')
+        ax.plot(Mv_x, Pv_x, 'b-', lw=2.5, label='X軸 P-M（Mux）')
+        ax.plot(Mv_y, Pv_y, 'g-', lw=2.5, label='Y軸 P-M（Muy）')
+        
+        # 設計點
+        ax.scatter([pm_Mux], [pm_Pu], c='red', s=150, zorder=5, marker='o',
+                   label=f'設計點X ({pm_Pu:.0f} tf, {pm_Mux:.0f} tf-m)')
+        if pm_Muy > 0:
+            ax.scatter([pm_Muy], [pm_Pu], c='orange', s=150, zorder=5, marker='s',
+                       label=f'設計點Y ({pm_Pu:.0f} tf, {pm_Muy:.0f} tf-m)')
+        
         ax.axhline(0, color='gray', ls='--', lw=0.8)
         ax.axvline(0, color='gray', ls='--', lw=0.8)
-        ax.set_xlabel('彎矩 M (tf-m)', fontsize=12)
-        ax.set_ylabel('軸力 P (tf)', fontsize=12)
-        ax.set_title(f'SRC 柱 P-M 互制曲線\n{pm_stl.name} / {pm_b}×{pm_h}cm / {pm_n}-{pm_s}', fontsize=12)
-        ax.legend(fontsize=10)
+        # 設定中文字體
+        try:
+            from matplotlib.font_manager import FontProperties
+            font_cn = FontProperties(family=['Microsoft JhengHei', 'PingFang TC', 
+                                             'Noto Sans CJK TC', 'WenQuanYi Zen Hei', 
+                                             'DejaVu Sans'])
+        except Exception:
+            font_cn = None
+        ax.set_xlabel('彎矩 M (tf-m)', fontsize=12, fontproperties=font_cn)
+        ax.set_ylabel('軸力 P (tf)', fontsize=12, fontproperties=font_cn)
+        ax.set_title(f'SRC 柱 P-M 互制曲線（雙向）\n{pm_stl.name} / {pm_b}×{pm_h}cm / {pm_n}-{pm_s}', 
+                     fontsize=12, fontproperties=font_cn)
+        ax.legend(fontsize=10, prop=font_cn)
         ax.grid(alpha=0.3)
         st.pyplot(fig)
 
