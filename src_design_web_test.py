@@ -2061,12 +2061,8 @@ with tab_col:
             import numpy as np
             from mpl_toolkits.mplot3d import Axes3D
             
-            # 嘗試使用精確版本（如有 scipy）
-            try:
-                from scipy.optimize import brentq
-                Mx, My, P = gen_pm_surface_accurate(mat, c_stl, cw, ch, cc, As_col, pts=20)
-            except ImportError:
-                Mx, My, P = gen_pm_surface(mat, c_stl, cw, ch, cc, As_col, pts=25)
+            # 使用精確版本（纖維分割法）
+            Mx, My, P = gen_pm_surface_accurate(mat, c_stl, cw, ch, cc, As_col, pts=20)
             
             fig3d = plt.figure(figsize=(10, 8))
             ax3d = fig3d.add_subplot(111, projection='3d')
