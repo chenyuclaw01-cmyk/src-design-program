@@ -1618,8 +1618,8 @@ def show_column_summary(res: dict, Pu: float, Mux: float, Muy: float = 0.0):
         st.markdown(_card('鋼骨寬厚比', wtxt, '依SRC規範第3章', wc),
                     unsafe_allow_html=True)
 
-def report_to_html(title: str, report: str) -> str:
-    """將純文字計算書轉換為格式化 HTML 網頁版計算書"""
+def report_to_html(title: str, report: str, pm_image: str = None, pm3d_image: str = None) -> str:
+    """將純文字計算書轉換為格式化 HTML 網頁版計算書（可選：嵌入P-M曲線圖）"""
     lines = report.split('\n')
     html_lines = []
     for line in lines:
@@ -1660,6 +1660,8 @@ body{{font-family:'Microsoft JhengHei','PingFang TC','Noto Sans TC',sans-serif;
 .ng{{color:#c0392b;font-weight:bold}}
 .ln{{color:#333}}
 .bl{{height:6px}}
+.chart-section{{margin-top:30px;padding:20px;background:#f8f9fa;border-radius:8px}}
+.chart-section h3{{color:#1a3c6d;margin-bottom:15px}}
 .ftr{{text-align:center;font-size:11px;color:#aaa;
       margin-top:30px;border-top:1px solid #eee;padding-top:14px}}
 </style></head>
@@ -1895,6 +1897,36 @@ with tab_col:
         ax.legend(fontsize=10, prop=font_cn)
         ax.grid(alpha=0.3)
         st.pyplot(fig)
+        
+        # ── P-M-M 3D 曲面圖 ─────────────────────────────
+        st.markdown("#### 📊 P-M-M 3D 曲面圖")
+        try:
+            import numpy as np
+            from mpl_toolkits.mplot3d import Axes3D
+            
+            Mx, My, P = gen_pm_surface(mat, c_stl, cw, ch, cc, As_col, pts=25)
+            
+            fig3d = plt.figure(figsize=(10, 8))
+            ax3d = fig3d.add_subplot(111, projection='3d')
+            
+            surf = ax3d.plot_surface(Mx, My, P, cmap='viridis', alpha=0.8, 
+                                     edgecolor='none', antialiased=True)
+            
+            # 設計點
+            ax3d.scatter([Mux_c], [Muy_c], [Pu_c], c='red', s=150, marker='o', 
+                        label=f'設計點', zorder=5)
+            
+            ax3d.set_xlabel('Mx (tf-m)', fontsize=11, fontproperties=font_cn)
+            ax3d.set_ylabel('My (tf-m)', fontsize=11, fontproperties=font_cn)
+            ax3d.set_zlabel('P (tf)', fontsize=11, fontproperties=font_cn)
+            ax3d.set_title(f'SRC 柱 P-M-M 3D 曲面\n{c_stl.name} / {cw}×{ch}cm', 
+                          fontsize=12, fontproperties=font_cn)
+            ax3d.legend(fontsize=10, prop=font_cn)
+            fig3d.colorbar(surf, shrink=0.5, aspect=10, label='P (tf)')
+            
+            st.pyplot(fig3d)
+        except Exception as e:
+            st.warning(f"3D 曲面圖生成失敗: {e}")
 
 st.markdown("---")
 st.warning("⚠️ 本程式依據『內政部頒布 — 鋼骨鋼筋混凝土構造設計規範與解說（110年3月24日修正）』計算，僅供設計初稿參考，實際設計應經專業結構技師審查簽證。")
