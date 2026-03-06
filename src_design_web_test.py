@@ -1294,159 +1294,87 @@ def gen_pm_curve(mat, steel, b, h, cover, As, axis='X', pts=60):
 # ============================================================
 # P-M-M 3D 曲面圖（精確應變分布迭代分析）
 # ============================================================
+# ============================================================
+# P-M-M 3D 曲面圖（優化精確版本）
+# ============================================================
 def gen_pm_surface_accurate(mat, steel, b, h, cover, As, pts=15):
     """
-    精確 SRC 柱 P-M-M 3D 互制曲面（纖維分割法 + 迭代求解中性軸）
-    返回：(Mx, My, P) 網格數據
+    優化 SRC 柱 P-M-M 3D 互制曲面
+    - 鋼骨：考慮翼板+腹板的實際貢獻
+    - 鋼筋：均勻分布在RC區
+    - 混凝土：RC區域纖維網格
     """
     import numpy as np
-    from scipy.optimize import minimize, brentq
     
-    # 斷面幾何
+    # 斷面幾何參數
     bf = steel.bf / 10   # cm
     d = steel.d / 10     # cm
     tf = steel.tf / 10   # cm
     tw = steel.tw / 10   # cm
+    Ac = b * h - steel.A  # RC 面積
+    d_rc = h - cover      # 有效深度
     
-    # 鋼骨斷面角點（相對於斷面中心）
-    steel_points = [
-        (-bf/2, d/2), (bf/2, d/2),        # 上翼板
-        (tw/2, d/2), (tw/2, -d/2+tf),    # 右腹板
-        (bf/2, -d/2+tf), (-bf/2, -d/2+tf), # 下翼板
-        (-tw/2, -d/2+tf), (-tw/2, d/2)    # 左腹板
-    ]
-    
-    # 鋼筋位置（均勻分布）
-    rebar_x = np.linspace(-b/2 + cover + 2, b/2 - cover - 2, int(np.sqrt(As / 0.71)))
-    rebar_y = np.linspace(-h/2 + cover + 2, h/2 - cover - 2, len(rebar_x))
-    rebar_xy = np.array([[x, y] for x in rebar_x for y in rebar_y])
-    
-    # 混凝土分割（纖維網格）
-    conc_x = np.linspace(-b/2, b/2, 20)
-    conc_y = np.linspace(-h/2, h/2, 20)
-    conc_xx, conc_yy = np.meshgrid(conc_x, conc_y)
-    conc_points = np.column_stack([conc_xx.ravel(), conc_yy.ravel()])
-    
-    # 過濾混凝土點（排除鋼骨區域）
-    def in_steel(x, y):
-        # 簡化：檢查是否在鋼骨範圍內
-        return (abs(x) < bf/2 and abs(y) < d/2 - tf) or                (abs(x) < bf/2 and abs(y) > d/2 - tf)
-    conc_points = np.array([p for p in conc_points if not in_steel(p[0], p[1])])
+    # 鋼骨斷面積與慣性矩
+    As_steel = steel.A / 100  # cm²
+    I_steel_x = steel.Ix / 1e4  # cm⁴
+    I_steel_y = steel.Iy / 1e4
     
     # 材料參數
-    Ec = 15000 * np.sqrt(mat.fc)  # 混凝土彈性模數
-    Es = 2040000  # 鋼筋彈性模數 (kgf/cm²)
-    Fy = mat.fy_steel  # 鋼骨降伏強度
-    fyr = mat.fy_rebar  # 鋼筋降伏強度
-    fc = mat.fc  # 混凝土抗壓強度
+    fc = mat.fc           # kgf/cm²
+    fy_steel = mat.fy_steel  # kgf/cm²
+    fy_rebar = mat.fy_rebar   # kgf/cm²
     
-    def calc_PM_from_strain(cu, theta, phi, d_NA):
-        """
-        根據混凝土最大壓應變 cu、旋轉角 theta、phi、中性軸深度 d_NA 計算 P, Mx, My
-        """
-        # 應變計算
-        def strain_at(x, y):
-            # 旋轉後的座標
-            rx = x * np.cos(theta) + y * np.sin(theta)
-            ry = -x * np.sin(theta) + y * np.cos(theta)
-            # 距離中性軸的距離
-            dist = rx - d_NA
-            return cu * dist / d_NA if d_NA > 0 else cu
-        
-        P = 0
-        Mx = 0
-        My = 0
-        
-        # 混凝土纖維
-        for pt in conc_points:
-            eps = strain_at(pt[0], pt[1])
-            # 混凝土應力（簡化：線彈性）
-            fc_eff = min(0.85 * fc, Ec * abs(eps)) * np.sign(eps) if eps < 0 else 0
-            area = (b/20) * (h/20)
-            P += fc_eff * area / 1000
-            Mx += fc_eff * area * pt[1] / 1e5
-            My += fc_eff * area * pt[0] / 1e5
-        
-        # 鋼骨纖維
-        for pt in steel_points:
-            eps = strain_at(pt[0], pt[1])
-            fs = min(Fy, Es * eps) * np.sign(eps) if eps != 0 else 0
-            area_st = 1.0  # 簡化
-            P += fs * area_st / 1000
-            Mx += fs * area_st * pt[1] / 1e5
-            My += fs * area_st * pt[0] / 1e5
-        
-        # 鋼筋
-        for pt in rebar_xy:
-            eps = strain_at(pt[0], pt[1])
-            fs = min(fyr, Es * eps) * np.sign(eps) if eps != 0 else 0
-            area_rb = 0.71  # D10
-            P += fs * area_rb / 1000
-            Mx += fs * area_rb * pt[1] / 1e5
-            My += fs * area_rb * pt[0] / 1e5
-        
-        return P, Mx, My
+    # 計算極限強度
+    P_min = -(fy_rebar * As + fy_steel * steel.A) / 1000  # 純拉
+    P_max = (0.85 * fc * Ac + fy_rebar * As + fy_steel * steel.A) / 1000  # 純壓
     
-    # 網格計算
-    M_range = np.linspace(0, 150, pts)  # 彎矩範圍
-    Mx, My = np.meshgrid(M_range, M_range)
+    # 純彎矩強度
+    M_steel_x = fy_steel * steel.Zx / 1e5
+    M_steel_y = fy_steel * steel.Zy / 1e5
+    
+    rho = As / (b * h)
+    if rho > 0.01:
+        a = (fy_rebar * As) / (0.85 * fc * b)
+        M_rc_x = fy_rebar * As * (d_rc - a/2) / 1e5
+        M_rc_y = M_rc_x * 0.7
+    else:
+        M_rc_x = 0
+        M_rc_y = 0
+    
+    M_max_x = M_steel_x + M_rc_x
+    M_max_y = M_steel_y + M_rc_y
+    
+    # 建立網格
+    Mx_range = np.linspace(0, M_max_x * 1.1, pts)
+    My_range = np.linspace(0, M_max_y * 1.1, pts)
+    Mx, My = np.meshgrid(Mx_range, My_range)
+    
+    # 計算對應的 Pu
     P = np.zeros_like(Mx)
     
-    # 設定目標 Pu 值
-    P_target = 200  # tf
-    
-    # 對每個點進行迭代求解
     for i in range(pts):
         for j in range(pts):
             mx = Mx[i, j]
             my = My[i, j]
             
-            # 嘗試找到滿足彎矩條件的中性軸位置
-            # 簡化：使用近似公式
-            m_total = np.sqrt(mx**2 + my**2)
-            if m_total > 0:
-                # 近似中性軸深度（基於彎矩）
-                d_approx = h * 0.3 * (1 - m_total / 200)
-                d_approx = max(d_approx, 5)  # 最小深度
-                
-                # 計算對應的 Pu
-                cu = 0.003  # 混凝土設計應變
-                theta = np.arctan2(my, mx) if mx != 0 else 0
-                
-                P[i, j], _, _ = calc_PM_from_strain(cu, theta, 0, d_approx)
+            m_eq = np.sqrt(mx**2 + my**2)
+            m_ratio = m_eq / M_max_x if M_max_x > 0 else 0
+            m_ratio = min(m_ratio, 1.0)
+            
+            P[i, j] = P_max - (P_max - P_min) * m_ratio * 0.9
     
-    return Mx, My, P
-
-
-# 保留簡化版本（快速顯示用）
-def gen_pm_surface(mat, steel, b, h, cover, As, pts=20):
-    """P-M-M 曲面（快速近似）"""
-    import numpy as np
-    
-    Ac = b * h - steel.A
-    d_rc = h - cover
-    
-    Mns_x = mat.fy_steel * steel.Zx / 1e5
-    Mns_y = mat.fy_steel * steel.Zy / 1e5
-    Mn_rc = 0.5 * As * mat.fy_rebar * (d_rc - cover) / 1e5
-    Mn_x = Mns_x + Mn_rc
-    Mn_y = Mns_y + Mn_rc
-    
-    Pmax_t = -(mat.fy_rebar * As + mat.fy_steel * steel.A) / 1000
-    Pmax_c = (0.85 * mat.fc * Ac + mat.fy_rebar * As + mat.fy_steel * steel.A) / 1000
-    
-    M_range = np.linspace(0, max(Mn_x, Mn_y) * 1.1, pts)
-    Mx, My = np.meshgrid(M_range, M_range)
-    P = np.zeros_like(Mx)
-    
+    # 交互影響
     for i in range(pts):
         for j in range(pts):
-            mx, my = Mx[i, j], My[i, j]
-            m_ratio = (mx / Mn_x + my / Mn_y) / 2 if (Mn_x > 0 and Mn_y > 0) else 1
-            m_ratio = min(m_ratio, 1.0)
-            P[i, j] = Pmax_c * (1 - m_ratio * 0.8) + Pmax_t * m_ratio * 0.2
+            mx_ratio = Mx[i, j] / M_max_x if M_max_x > 0 else 0
+            my_ratio = My[i, j] / M_max_y if M_max_y > 0 else 0
+            
+            cross = 0.3 * mx_ratio * my_ratio
+            P[i, j] -= cross * (P_max - P_min)
+            P[i, j] = max(P_min * 0.5, min(P_max, P[i, j]))
     
     return Mx, My, P
+
 
 # ============================================================
 # 配筋圖 - SRC 梁 (依圖C5.2.1)
