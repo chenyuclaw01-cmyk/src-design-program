@@ -1292,6 +1292,55 @@ def gen_pm_curve(mat, steel, b, h, cover, As, axis='X', pts=60):
 
 
 # ============================================================
+# P-M-M 3D 曲面圖（軸力 + 雙向彎矩）
+# ============================================================
+def gen_pm_surface(mat, steel, b, h, cover, As, pts=20):
+    """
+    產生 SRC 柱 P-M-M 3D 互制曲面
+    返回：(Mx, My, P) 網格數據
+    """
+    import numpy as np
+    
+    Ac = b * h - steel.A
+    d_rc = h - cover
+    
+    # 鋼骨彎矩強度
+    Mns_x = mat.fy_steel * steel.Zx / 1e5  # X軸
+    Mns_y = mat.fy_steel * steel.Zy / 1e5  # Y軸
+    
+    # RC 彎矩強度（近似）
+    Mn_rc = 0.5 * As * mat.fy_rebar * (d_rc - cover) / 1e5
+    
+    # 總彎矩強度
+    Mn_x = Mns_x + Mn_rc
+    Mn_y = Mns_y + Mn_rc
+    
+    # 軸力範圍
+    Pmax_t = -(mat.fy_rebar * As + mat.fy_steel * steel.A) / 1000
+    Pmax_c = (0.85 * mat.fc * Ac + mat.fy_rebar * As + mat.fy_steel * steel.A) / 1000
+    
+    # 彎矩範圍
+    M_range = np.linspace(0, max(Mn_x, Mn_y) * 1.1, pts)
+    
+    # 建立網格
+    Mx, My = np.meshgrid(M_range, M_range)
+    P = np.zeros_like(Mx)
+    
+    for i in range(pts):
+        for j in range(pts):
+            mx = Mx[i, j]
+            my = My[i, j]
+            
+            # 計算有效軸力（简化版：考虑双轴弯矩影响）
+            m_ratio = (mx / Mn_x + my / Mn_y) / 2 if (Mn_x > 0 and Mn_y > 0) else 1
+            m_ratio = min(m_ratio, 1.0)
+            
+            # 軸力隨彎矩增加而減少
+            P[i, j] = Pmax_c * (1 - m_ratio * 0.8) + Pmax_t * m_ratio * 0.2
+    
+    return Mx, My, P
+
+# ============================================================
 # 配筋圖 - SRC 梁 (依圖C5.2.1)
 # ============================================================
 def draw_beam_section(fig, ax, steel: SteelSection, b, h, cover,
