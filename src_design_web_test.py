@@ -1549,7 +1549,7 @@ def show_column_summary(res: dict, Pu: float, Mux: float, Muy: float = 0.0):
         tag_m = '✓ OK' if ok_mu else '✗ NG'
         st.markdown(_card('疊加彎矩 φMn',
                           f'{phi_Mn:.2f} tf-m',
-                          f'Mu = {Mu:.2f} tf-m　D/C = {dc_M:.3f}　{tag_m}', cm),
+                          f'Mu = {Mu_total:.2f} tf-m　D/C = {dc_M:.3f}　{tag_m}', cm),
                     unsafe_allow_html=True)
 
     # ── 第二列：剪力強度 / 鋼骨寬厚比 ────────────────────────
