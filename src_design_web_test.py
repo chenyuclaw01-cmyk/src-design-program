@@ -1497,9 +1497,13 @@ def show_column_summary(res: dict, Pu: float, Mux: float, Muy: float = 0.0):
     phi_Pn    = res['phi_Pn']
     chk_s     = res['chk_s']
     chk_r     = res['chk_r']
-    phi_Mn    = res.get('phi_Mn', 0.0)
-    phi_Mnx   = res.get('phi_Mnx', phi_Mn)  # X軸彎矩強度
-    phi_Mny   = res.get('phi_Mny', phi_Mn)  # Y軸彎矩強度
+    phi_Mnx   = res.get('phi_Mnx', 0.0)  # X軸彎矩強度
+    phi_Mny   = res.get('phi_Mny', 0.0)  # Y軸彎矩強度
+    phi_Mn    = res.get('phi_Mn', phi_Mnx)  # 單向或X向疊加彎矩
+    # 如果只有单向，phi_Mnx有值；如果雙向，兩者都有值
+    # 取两者中的较大值作为组合强度显示
+    if phi_Mny > 0:
+        phi_Mn = max(phi_Mnx, phi_Mny)
     phi_Vn    = res.get('phi_Vn', 0.0)
     phi_Vns   = res.get('phi_Vns', 0.0)
     phi_Vnrc  = res.get('phi_Vnrc', 0.0)
