@@ -1300,15 +1300,29 @@ def gen_pm_curve(mat, steel, b, h, cover, As, axis='X', pts=60):
     else:
         Z = steel.Zx  # X軸用 Zx
     
+    # 極限軸力
     Pmax_t = -(mat.fy_rebar * As + mat.fy_steel * steel.A) / 1000
     Pmax_c = (0.85 * mat.fc * Ac + mat.fy_rebar * As + mat.fy_steel * steel.A) / 1000
+    
+    # 修正：使用完整的 RC + 鋼骨彎矩貢獻
+    # RC 彎矩（簡化矩形應力分布）
+    a_rc = (mat.fy_rebar * As) / (0.85 * mat.fc * b)  # 壓力區深度
+    M_rc = mat.fy_rebar * As * (d_rc - a_rc/2) / 1e5 if a_rc < d_rc else 0
+    
+    # 鋼骨彎矩
+    M_steel = mat.fy_steel * Z / 1e5
+    
+    # 最大彎矩強度
+    M_max = M_rc + M_steel
+    
     curve = []
     for i in range(pts + 1):
         r = i / pts
         P = Pmax_t + (Pmax_c - Pmax_t) * r
+        # 使用修正公式：彎矩隨軸力變化
         if 0.1 < r < 0.9:
-            M = (0.5 * As * mat.fy_rebar * (d_rc - cover) / 1e5
-                 + 0.5 * mat.fy_steel * Z / 1e5) * math.sin(r * math.pi)
+            # 中間軸力時彎矩最大
+            M = M_max * math.sin(r * math.pi)
         else:
             M = 0
         curve.append((P, M))
