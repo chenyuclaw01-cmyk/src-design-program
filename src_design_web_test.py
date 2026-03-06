@@ -19,53 +19,89 @@ import os
 import urllib.request
 
 # ── 跨平台中文字體設定 ─────────────────────────────────────────────
-# 優先使用系統已有的CJK字體，否則自動下載 Noto Sans TC（靜態版本）
+# 回傳 matplotlib.font_manager.FontProperties 物件，供繪圖函數明確使用
 def _setup_cjk_font():
-    # 1. 嘗試系統/已安裝字體（Windows / macOS）
-    prefer = ['Microsoft JhengHei', 'PingFang TC', 'Noto Sans TC',
-              'Noto Sans CJK TC', 'Arial Unicode MS', 'WenQuanYi Zen Hei']
+    import os, urllib.request
+    import matplotlib.font_manager as fm
+    import matplotlib
+
+    # 1. Windows 系統字體路徑（優先使用，不依賴 fontManager 名稱比對）
+    WIN_FONTS = [
+        r'C:\Windows\Fonts\msjh.ttc',      # 微軟正黑體 Regular
+        r'C:\Windows\Fonts\msjhbd.ttc',    # 微軟正黑體 Bold
+        r'C:\Windows\Fonts\mingliu.ttc',   # 新細明體
+        r'C:\Windows\Fonts\kaiu.ttf',      # 標楷體
+    ]
+    for fpath in WIN_FONTS:
+        if os.path.exists(fpath):
+            try:
+                fm.fontManager.addfont(fpath)
+                prop = fm.FontProperties(fname=fpath)
+                matplotlib.rcParams['font.sans-serif'] = [prop.get_name(), 'DejaVu Sans']
+                matplotlib.rcParams['axes.unicode_minus'] = False
+                return prop
+            except Exception:
+                continue
+
+    # 2. macOS 系統字體
+    MAC_FONTS = [
+        '/System/Library/Fonts/PingFang.ttc',
+        '/System/Library/Fonts/STHeiti Light.ttc',
+        '/Library/Fonts/Arial Unicode.ttf',
+    ]
+    for fpath in MAC_FONTS:
+        if os.path.exists(fpath):
+            try:
+                fm.fontManager.addfont(fpath)
+                prop = fm.FontProperties(fname=fpath)
+                matplotlib.rcParams['font.sans-serif'] = [prop.get_name(), 'DejaVu Sans']
+                matplotlib.rcParams['axes.unicode_minus'] = False
+                return prop
+            except Exception:
+                continue
+
+    # 3. 嘗試 matplotlib 已知 CJK 字體（Linux / Streamlit Cloud）
+    prefer = ['Noto Sans TC', 'Noto Sans CJK TC', 'WenQuanYi Zen Hei',
+              'AR PL UMing TW', 'Arial Unicode MS']
     available = {f.name for f in fm.fontManager.ttflist}
     for name in prefer:
         if name in available:
             matplotlib.rcParams['font.sans-serif'] = [name, 'DejaVu Sans']
             matplotlib.rcParams['axes.unicode_minus'] = False
-            return
+            return fm.FontProperties(family=name)
 
-    # 2. 在 Streamlit Cloud (Linux) 找不到上述字體 → 動態下載 Noto Sans TC
-    #    使用固定版本 TTF（無可變字體，URL 不含特殊字元，下載更穩定）
+    # 4. 動態下載 Noto Sans TC（Streamlit Cloud 無任何 CJK 字體時的最後手段）
     font_dir  = os.path.join(os.path.expanduser('~'), '.matplotlib_fonts')
     font_path = os.path.join(font_dir, 'NotoSansTC-Regular.ttf')
     if not os.path.exists(font_path):
         os.makedirs(font_dir, exist_ok=True)
-        # 主要來源：Google Fonts CDN 靜態連結（固定版本 v36，最穩定）
         _FONT_URLS = [
             ('https://fonts.gstatic.com/s/notosanstc/v36/'
              'nKKQ-GM_FYFRJvXzVXaAPe97P1KHynJFbsJr-E-YGr4.ttf'),
-            # 備援：GitHub Noto 字體 Releases 直連（固定 tag，無方括號）
-            ('https://github.com/notofonts/noto-cjk/releases/download/'
-             'Sans2.004R/NotoSansCJK-Regular.ttc'),
         ]
         for _url in _FONT_URLS:
             try:
                 urllib.request.urlretrieve(_url, font_path)
-                break   # 下載成功即跳出
+                break
             except Exception:
                 if os.path.exists(font_path):
-                    os.remove(font_path)  # 清除可能損壞的檔案
+                    os.remove(font_path)
     if os.path.exists(font_path):
-        # 刷新 matplotlib 字體快取，確保新下載的字體被識別
         try:
             fm.fontManager.addfont(font_path)
-            # 取得實際字體名稱以正確設定 rcParams
             prop = fm.FontProperties(fname=font_path)
-            font_name = prop.get_name()
-            matplotlib.rcParams['font.sans-serif'] = [font_name, 'DejaVu Sans']
+            matplotlib.rcParams['font.sans-serif'] = [prop.get_name(), 'DejaVu Sans']
+            matplotlib.rcParams['axes.unicode_minus'] = False
+            return prop
         except Exception:
-            # 萬一無法識別字體名稱，直接以路徑指定
-            matplotlib.rcParams['font.sans-serif'] = ['DejaVu Sans']
-    matplotlib.rcParams['axes.unicode_minus'] = False
+            pass
 
-_setup_cjk_font()
+    # 5. 完全找不到 → 用 DejaVu Sans（中文會亂碼，但不會崩潰）
+    matplotlib.rcParams['axes.unicode_minus'] = False
+    return fm.FontProperties(family='DejaVu Sans')
+
+_CJK_FONT = _setup_cjk_font()   # 全域 FontProperties，供繪圖函數使用
+
 
 # ============================================================
 # 材料資料類別
@@ -93,26 +129,68 @@ class SteelSection:
     tf: float   # 翼板厚度 mm
     tw: float   # 腹板厚度 mm
     d: float    # 斷面深度 mm
-    Ix: float   # 慣性矩 cm⁴
-    Zx: float   # 塑性斷面模數 cm³
+    Ix: float   # X軸慣性矩 cm⁴（強軸，高度方向）
+    Zx: float   # X軸塑性斷面模數 cm³
     A: float    # 斷面積 cm²
+    Iy: float = 0.0   # Y軸慣性矩 cm⁴（弱軸，寬度方向）；0=自動估算
+    Zy: float = 0.0   # Y軸塑性斷面模數 cm³；0=自動估算
+
+    def __post_init__(self):
+        """若 Iy/Zy 未提供，依斷面幾何自動估算"""
+        bf_cm = self.bf / 10.0
+        d_cm  = self.d  / 10.0
+        tf_cm = self.tf / 10.0
+        tw_cm = self.tw / 10.0
+        if self.Iy == 0.0:
+            if self.section_type == 'BOX':
+                # BOX方形：寬度方向與高度方向相同公式
+                self.Iy = round(
+                    (d_cm * bf_cm**3 - (d_cm - 2*tf_cm) * (bf_cm - 2*tw_cm)**3) / 12.0, 1)
+            else:
+                # H型鋼弱軸：主要由翼板貢獻
+                self.Iy = round(
+                    2 * (tf_cm * bf_cm**3 / 12.0) + (d_cm - 2*tf_cm) * tw_cm**3 / 12.0, 1)
+        if self.Zy == 0.0 and bf_cm > 0:
+            if self.section_type == 'BOX':
+                self.Zy = round(self.Iy / (bf_cm / 2.0), 1)
+            else:
+                # H型鋼弱軸塑性模數（近似：翼板全塑性）
+                self.Zy = round(
+                    tf_cm * bf_cm**2 / 2.0 + (d_cm - 2*tf_cm) * tw_cm**2 / 4.0, 1)
 
 # 依據 JIS G 3192 (台灣採用) 及台灣鋼結構設計手冊
 # 格式：name, type, bf(mm), tf(mm), tw(mm), d(mm), Ix(cm⁴), Zx(cm³), A(cm²)
 STEEL_DB = {
-    # ── HN 中翼型（梁常用）────────────────────────────────────
-    'HN300×150×6.5×9':  SteelSection('HN300×150×6.5×9',  'H', 150,  9,  6.5, 300,  7210,  509,  46.78),
-    'HN350×175×7×11':   SteelSection('HN350×175×7×11',   'H', 175, 11,  7.0, 350, 13600,  819,  62.91),
-    'HN400×200×8×13':   SteelSection('HN400×200×8×13',   'H', 200, 13,  8.0, 400, 23700, 1250,  84.12),
-    'HN450×200×9×14':   SteelSection('HN450×200×9×14',   'H', 200, 14,  9.0, 450, 33500, 1570,  96.76),
-    'HN500×200×10×16':  SteelSection('HN500×200×10×16',  'H', 200, 16, 10.0, 500, 47800, 2020, 114.2 ),
-    'HN600×200×11×17':  SteelSection('HN600×200×11×17',  'H', 200, 17, 11.0, 600, 92800, 3270, 134.4 ),
-    # ── HW 寬翼型（梁柱皆可）──────────────────────────────────
-    'HW200×200×8×12':   SteelSection('HW200×200×8×12',   'H', 200, 12,  8.0, 200,  4730,  523,  63.53),
-    'HW250×250×9×14':   SteelSection('HW250×250×9×14',   'H', 250, 14,  9.0, 250, 10800,  960,  91.43),
-    'HW300×300×10×15':  SteelSection('HW300×300×10×15',  'H', 300, 15, 10.0, 300, 20500, 1500, 119.8 ),
-    'HW350×350×12×19':  SteelSection('HW350×350×12×19',  'H', 350, 19, 12.0, 350, 40300, 2520, 173.9 ),
-    'HW400×400×13×21':  SteelSection('HW400×400×13×21',  'H', 400, 21, 13.0, 400, 66600, 3650, 218.7 ),
+    # ── RH 等翼型 (bf≈d，梁柱皆可) ─────────────────────────────
+    'RH100×100×6×8':    SteelSection('RH100×100×6×8',    'H', 100,  8,  6.0, 100,   370,   84, 21.04),
+    'RH125×125×6.5×9':  SteelSection('RH125×125×6.5×9',  'H', 125,  9,  6.5, 125,   825,  149, 29.46),
+    'RH150×150×7×10':   SteelSection('RH150×150×7×10',   'H', 150, 10,  7.0, 150,  1601,  240, 39.10),
+    'RH200×200×8×12':   SteelSection('RH200×200×8×12',   'H', 200, 12,  8.0, 200,  4611,  513, 62.08),
+    'RH250×250×9×14':   SteelSection('RH250×250×9×14',   'H', 250, 14,  9.0, 250, 10587,  937, 89.98),
+    'RH300×300×10×15':  SteelSection('RH300×300×10×15',  'H', 300, 15, 10.0, 300, 19933, 1465,117.00),
+    'RH350×350×12×19':  SteelSection('RH350×350×12×19',  'H', 350, 19, 12.0, 350, 39431, 2493,170.44),
+    'RH400×400×13×21':  SteelSection('RH400×400×13×21',  'H', 400, 21, 13.0, 400, 65369, 3600,214.54),
+    # ── RH 中翼型 (梁常用) ─────────────────────────────────────
+    'RH150×75×5×7':     SteelSection('RH150×75×5×7',     'H',  75,  7,  5.0, 150,   642,   98, 17.30),
+    'RH200×100×5.5×8':  SteelSection('RH200×100×5.5×8',  'H', 100,  8,  5.5, 200,  1761,  200, 26.12),
+    'RH250×125×6×9':    SteelSection('RH250×125×6×9',    'H', 125,  9,  6.0, 250,  3893,  351, 36.42),
+    'RH300×150×6.5×9':  SteelSection('RH300×150×6.5×9',  'H', 150,  9,  6.5, 300,  6928,  524, 45.33),
+    'RH350×175×7×11':   SteelSection('RH350×175×7×11',   'H', 175, 11,  7.0, 350, 13123,  841, 61.46),
+    'RH400×200×8×13':   SteelSection('RH400×200×8×13',   'H', 200, 13,  8.0, 400, 22963, 1286, 81.92),
+    'RH450×200×9×14':   SteelSection('RH450×200×9×14',   'H', 200, 14,  9.0, 450, 32259, 1621, 93.98),
+    'RH500×200×10×16':  SteelSection('RH500×200×10×16',  'H', 200, 16, 10.0, 500, 46037, 2096,110.80),
+    'RH600×200×11×17':  SteelSection('RH600×200×11×17',  'H', 200, 17, 11.0, 600, 74584, 2863,130.26),
+    'RH700×300×13×24':  SteelSection('RH700×300×13×24',  'H', 300, 24, 13.0, 700,193983, 6250,228.76),
+    'RH800×300×14×26':  SteelSection('RH800×300×14×26',  'H', 300, 26, 14.0, 800,283025, 7996,260.72),
+    'RH900×300×16×28':  SteelSection('RH900×300×16×28',  'H', 300, 28, 16.0, 900,399926,10174,303.04),
+    # ── RH 特殊型 (非標準比例) ──────────────────────────────────
+    'RH244×175×7×11':   SteelSection('RH244×175×7×11',   'H', 175, 11,  7.0, 244,  5868,  535, 54.04),
+    'RH294×200×8×12':   SteelSection('RH294×200×8×12',   'H', 200, 12,  8.0, 294, 10828,  823, 69.60),
+    'RH340×250×9×14':   SteelSection('RH340×250×9×14',   'H', 250, 14,  9.0, 340, 20888, 1360, 98.08),
+    'RH390×300×10×16':  SteelSection('RH390×300×10×16',  'H', 300, 16, 10.0, 390, 37414, 2116,131.80),
+    'RH440×300×11×18':  SteelSection('RH440×300×11×18',  'H', 300, 18, 11.0, 440, 54060, 2728,152.44),
+    'RH488×300×11×18':  SteelSection('RH488×300×11×18',  'H', 300, 18, 11.0, 488, 68337, 3100,157.72),
+    'RH588×300×12×20':  SteelSection('RH588×300×12×20',  'H', 300, 20, 12.0, 588,113284, 4309,185.76),
     # ── BOX 箱型鋼（柱常用）───────────────────────────────────
     'BOX200×200×9':     SteelSection('BOX200×200×9',   'BOX', 200,  9,  9, 200,  4190,  493,  68.76),
     'BOX250×250×9':     SteelSection('BOX250×250×9',   'BOX', 250,  9,  9, 250,  8410,  789,  86.76),
@@ -145,7 +223,8 @@ def steel_section_selector(key: str, filter_type: str = 'all',
     傳回所選 / 自訂的 SteelSection 物件。
     """
     if filter_type == 'H':
-        db_keys = [k for k in STEEL_DB if k.startswith('H')]
+        # H型鋼在資料庫中以 'RH' 開頭（JIS G 3192）
+        db_keys = [k for k in STEEL_DB if not k.startswith('BOX')]
     elif filter_type == 'BOX':
         db_keys = [k for k in STEEL_DB if k.startswith('BOX')]
     else:
@@ -190,37 +269,87 @@ def steel_section_selector(key: str, filter_type: str = 'all',
             _A_est  = round(2*bf_cm*tf_cm + (d_cm - 2*tf_cm)*tw_cm, 2)
             _Ix_est = round(bf_cm*d_cm**3/12 - (bf_cm-tw_cm)*(d_cm-2*tf_cm)**3/12, 1)
             _Zx_est = round(_Ix_est / (d_cm/2), 1)
+            _Iy_est = round(2*tf_cm*bf_cm**3/12 + (d_cm-2*tf_cm)*tw_cm**3/12, 1)
+            _Zy_est = round(_Iy_est / (bf_cm/2), 1)
         else:
             _A_est  = round(bf_cm*d_cm - (bf_cm-2*tw_cm)*(d_cm-2*tf_cm), 2)
             _Ix_est = round((bf_cm*d_cm**3 - (bf_cm-2*tw_cm)*(d_cm-2*tf_cm)**3)/12, 1)
             _Zx_est = round(_Ix_est / (d_cm/2), 1)
+            _Iy_est = round((d_cm*bf_cm**3 - (d_cm-2*tf_cm)*(bf_cm-2*tw_cm)**3)/12, 1)
+            _Zy_est = round(_Iy_est / (bf_cm/2), 1)
 
         c_A  = st.number_input("斷面積 A (cm²)",    min_value=1.0,  max_value=5000.0,
                                value=float(_A_est),  step=0.1, format="%.2f", key=f"{key}_A")
-        c_Ix = st.number_input("慣性矩 Ix (cm⁴)",   min_value=1.0,  max_value=9999999.0,
+        c_Ix = st.number_input("慣性矩 Ix (cm⁴) (X向)",   min_value=1.0,  max_value=9999999.0,
                                value=float(_Ix_est), step=1.0, format="%.1f", key=f"{key}_Ix")
-        c_Zx = st.number_input("塑性模數 Zx (cm³)", min_value=1.0,  max_value=999999.0,
+        c_Zx = st.number_input("塑性模數 Zx (cm³) (X向)", min_value=1.0,  max_value=999999.0,
                                value=float(_Zx_est), step=1.0, format="%.1f", key=f"{key}_Zx")
+        c_Iy = st.number_input("慣性矩 Iy (cm⁴) (Y向)",   min_value=1.0,  max_value=9999999.0,
+                               value=float(_Iy_est), step=1.0, format="%.1f", key=f"{key}_Iy")
+        c_Zy = st.number_input("塑性模數 Zy (cm³) (Y向)", min_value=1.0,  max_value=999999.0,
+                               value=float(_Zy_est), step=1.0, format="%.1f", key=f"{key}_Zy")
 
     cust_name = f"自訂-{sec_type}{c_d}x{c_bf}x{c_tw}x{c_tf}"
-    st.caption(f"斷面名稱：{cust_name} | A={c_A:.2f} cm² | Ix={c_Ix:.1f} cm⁴ | Zx={c_Zx:.1f} cm³")
+    st.caption(f"斷面名稱：{cust_name} | A={c_A:.2f} cm² | Ix={c_Ix:.1f} cm⁴ | Zx={c_Zx:.1f} cm³ | Iy={c_Iy:.1f} cm⁴ | Zy={c_Zy:.1f} cm³")
     return SteelSection(name=cust_name, section_type=sec_type,
                         bf=float(c_bf), tf=float(c_tf), tw=float(c_tw), d=float(c_d),
-                        Ix=float(c_Ix), Zx=float(c_Zx), A=float(c_A))
+                        Ix=float(c_Ix), Zx=float(c_Zx), A=float(c_A),
+                        Iy=float(c_Iy), Zy=float(c_Zy))
 
 # ============================================================
 # 鋼骨斷面寬厚比檢核
 # ============================================================
-def check_width_thickness(mat: Material, steel: SteelSection) -> tuple:
+def check_width_thickness(mat: Material, steel: SteelSection,
+                          member: str = 'beam',
+                          seismic: bool = False) -> tuple:
     """
-    寬厚比檢核 (依台灣SRC設計規範 / AISC LRFD 緊密斷面限值)
-    H型鋼：翼板 λf = bf/(2tf)，腹板 λw = (d-2tf)/tw
-    BOX型鋼：板件 λ = (b-2t)/t
+    寬厚比檢核（依台灣SRC規範 110年版 第3.4節 表3.4-1~3.4-3）
+
+    台灣SRC規範核心規定：
+      被混凝土完全包覆的鋼骨，其局部挫屈受混凝土圍束抑制，
+      故寬厚比限值比純鋼骨（AISC 360 Table B4.1）放寬。
+      規範依構件類別訂有兩組限值：
+        λp  ── 一般（非耐震）設計之緊密斷面上限
+        λpd ── 耐震設計之緊密斷面上限（較嚴格）
+
+    參數
+    -----
+    member  : 'beam'（梁，對應表3.4-1）或 'column'（柱，對應表3.4-2/3.4-3）
+    seismic : True → 使用耐震設計限值 λpd；False → 使用一般限值 λp
+
+    ─ 表3.4-1  包覆型SRC梁（H型鋼）─────────────────────────────
+      翼板 bf/(2tf)
+        λp  = 0.38√(Es/Fys)
+        λpd = 0.30√(Es/Fys)
+      腹板 (d-2tf)/tw
+        λp  = 3.76√(Es/Fys)
+        λpd = 2.54√(Es/Fys)
+
+    ─ 表3.4-2  包覆型SRC柱（H型鋼）─────────────────────────────
+      翼板 bf/(2tf)
+        λp  = 0.56√(Es/Fys)   ← 放寬（混凝土包覆效益）
+        λpd = 0.40√(Es/Fys)
+      腹板 (d-2tf)/tw
+        λp  = 3.05√(Es/Fys)
+        λpd = 2.54√(Es/Fys)
+
+    ─ 表3.4-3  包覆型SRC柱（BOX型鋼/鋼管）──────────────────────
+      板件 (b-2t)/t
+        λp  = 1.40√(Es/Fys)   ← 放寬（混凝土填充）
+        λpd = 1.12√(Es/Fys)
     """
     lines = []
     lines.append("=" * 60)
     lines.append("鋼骨斷面寬厚比檢核")
-    lines.append("依據：SRC設計規範第3章 / AISC LRFD 緊密斷面限值")
+    if member == 'beam':
+        lines.append("依據：台灣SRC規範 第3.4節 表3.4-1（包覆型SRC梁）")
+    else:
+        if steel.section_type == 'BOX':
+            lines.append("依據：台灣SRC規範 第3.4節 表3.4-3（包覆型SRC柱，BOX型）")
+        else:
+            lines.append("依據：台灣SRC規範 第3.4節 表3.4-2（包覆型SRC柱，H型）")
+    design_label = "耐震設計 (λpd)" if seismic else "一般設計 (λp)"
+    lines.append(f"設計類別：{design_label}")
     lines.append("=" * 60)
 
     E  = mat.Es
@@ -239,86 +368,116 @@ def check_width_thickness(mat: Material, steel: SteelSection) -> tuple:
     is_ok = True
 
     if steel.section_type == 'H':
-        # ── 翼板寬厚比 ────────────────────────────────────────
-        lam_f   = bf_cm / (2 * tf_cm)
-        lam_pf  = 0.38 * r    # 緊密斷面上限
-        lam_rf  = 1.00 * r    # 非緊密斷面上限
+        # ─ 翼板寬厚比限值（梁 vs 柱）────────────────────────
+        if member == 'beam':
+            # 表3.4-1 梁翼板：λp=0.38, λpd=0.30
+            lam_pf = (0.30 if seismic else 0.38) * r
+            coeff_f = 0.30 if seismic else 0.38
+        else:
+            # 表3.4-2 柱翼板：λp=0.56, λpd=0.40
+            lam_pf = (0.40 if seismic else 0.56) * r
+            coeff_f = 0.40 if seismic else 0.56
+
+        # 非緊密斷面上限（超過則為細長，規範不允許用於SRC）
+        lam_rf = 1.00 * r   # 參照AISC 360 Table B4.1b；超過此值不得用於SRC
+
+        lam_f = bf_cm / (2 * tf_cm)
         if lam_f <= lam_pf:
-            tag_f = "✓ 緊密斷面"
+            tag_f = "✓ 緊密斷面（結實斷面）"
         elif lam_f <= lam_rf:
-            tag_f = "△ 非緊密斷面"
+            tag_f = "△ 非緊密斷面（超過λp，不符SRC規範第3.4節要求）"
             is_ok = False
         else:
-            tag_f = "✗ 細長斷面"
+            tag_f = "✗ 細長斷面（不得用於包覆型SRC構件）"
             is_ok = False
 
-        lines.append("\n【翼板寬厚比 λf = bf/(2tf)】")
+        label_f = "λpd（耐震）" if seismic else "λp（一般）"
+        lines.append(f"\n【翼板寬厚比 λf = bf/(2tf)】")
         lines.append(f"  bf = {bf_cm:.1f} cm，tf = {tf_cm:.1f} cm")
-        lines.append(f"  λf  = {bf_cm:.1f} / (2×{tf_cm:.1f}) = {lam_f:.2f}")
-        lines.append(f"  λpf = 0.38×√(Es/Fys) = 0.38×{r:.3f} = {lam_pf:.2f}  ← 緊密斷面限值")
-        lines.append(f"  λrf = 1.00×√(Es/Fys) = 1.00×{r:.3f} = {lam_rf:.2f}  ← 非緊密斷面限值")
+        lines.append(f"  λf   = {bf_cm:.1f} / (2×{tf_cm:.1f}) = {lam_f:.2f}")
+        lines.append(f"  {label_f} = {coeff_f:.2f}×√(Es/Fys) = {coeff_f:.2f}×{r:.3f} = {lam_pf:.2f}")
+        lines.append(f"  λrf  = 1.00×√(Es/Fys) = {lam_rf:.2f}  ← 非緊密斷面上限（SRC不允許超過）")
         lines.append(f"  λf = {lam_f:.2f}  → {tag_f}")
 
-        # ── 腹板寬厚比 ────────────────────────────────────────
-        lam_w   = (d_cm - 2 * tf_cm) / tw_cm
-        lam_pw  = 3.76 * r   # 梁（純彎）緊密斷面上限
-        lam_rw  = 5.70 * r   # 非緊密斷面上限
+        # ─ 腹板寬厚比限值（梁 vs 柱）────────────────────────
+        if member == 'beam':
+            # 表3.4-1 梁腹板：λp=3.76, λpd=2.54
+            lam_pw = (2.54 if seismic else 3.76) * r
+            coeff_w = 2.54 if seismic else 3.76
+        else:
+            # 表3.4-2 柱腹板：λp=3.05, λpd=2.54
+            lam_pw = (2.54 if seismic else 3.05) * r
+            coeff_w = 2.54 if seismic else 3.05
+
+        lam_rw = 5.70 * r   # 非緊密斷面上限（參照AISC 360）
+        lam_w  = (d_cm - 2 * tf_cm) / tw_cm
+
         if lam_w <= lam_pw:
-            tag_w = "✓ 緊密斷面"
+            tag_w = "✓ 緊密斷面（結實斷面）"
         elif lam_w <= lam_rw:
-            tag_w = "△ 非緊密斷面"
+            tag_w = "△ 非緊密斷面（超過λp，不符SRC規範第3.4節要求）"
             is_ok = False
         else:
-            tag_w = "✗ 細長斷面"
+            tag_w = "✗ 細長斷面（不得用於包覆型SRC構件）"
             is_ok = False
 
-        lines.append("\n【腹板寬厚比 λw = (d-2tf)/tw】")
+        label_w = "λpd（耐震）" if seismic else "λp（一般）"
+        lines.append(f"\n【腹板寬厚比 λw = (d-2tf)/tw】")
         lines.append(f"  d = {d_cm:.1f} cm，tf = {tf_cm:.1f} cm，tw = {tw_cm:.1f} cm")
-        lines.append(f"  λw  = ({d_cm:.1f}-2×{tf_cm:.1f}) / {tw_cm:.1f} = {lam_w:.2f}")
-        lines.append(f"  λpw = 3.76×√(Es/Fys) = 3.76×{r:.3f} = {lam_pw:.2f}  ← 梁緊密斷面限值")
-        lines.append(f"  λrw = 5.70×√(Es/Fys) = 5.70×{r:.3f} = {lam_rw:.2f}  ← 非緊密斷面限值")
+        lines.append(f"  λw   = ({d_cm:.1f}-2×{tf_cm:.1f}) / {tw_cm:.1f} = {lam_w:.2f}")
+        lines.append(f"  {label_w} = {coeff_w:.2f}×√(Es/Fys) = {coeff_w:.2f}×{r:.3f} = {lam_pw:.2f}")
+        lines.append(f"  λrw  = 5.70×√(Es/Fys) = {lam_rw:.2f}  ← 非緊密斷面上限（SRC不允許超過）")
         lines.append(f"  λw = {lam_w:.2f}  → {tag_w}")
 
-    else:  # BOX
-        # ── 箱型斷面：寬側板件（b方向）────────────────────────
-        lam_b   = (bf_cm - 2 * tw_cm) / tw_cm
-        lam_pb  = 1.12 * r   # 緊密斷面上限
-        lam_rb  = 1.40 * r   # 非緊密斷面上限
+    else:  # BOX（表3.4-3 包覆型SRC柱）
+        # 表3.4-3 BOX板件：λp=1.40, λpd=1.12
+        lam_pb = (1.12 if seismic else 1.40) * r
+        coeff_b = 1.12 if seismic else 1.40
+        lam_rb  = 2.00 * r   # 非緊密斷面上限（SRC BOX柱）
+
+        # ─ 寬側板件（b方向）────────────────────────────────
+        lam_b  = (bf_cm - 2 * tw_cm) / tw_cm
         if lam_b <= lam_pb:
-            tag_b = "✓ 緊密斷面"
+            tag_b = "✓ 緊密斷面（結實斷面）"
         elif lam_b <= lam_rb:
-            tag_b = "△ 非緊密斷面"
+            tag_b = "△ 非緊密斷面（超過λp，不符SRC規範第3.4-3節要求）"
             is_ok = False
         else:
-            tag_b = "✗ 細長斷面"
+            tag_b = "✗ 細長斷面（不得用於包覆型SRC柱）"
             is_ok = False
 
-        lines.append("\n【箱形斷面板件寬厚比 (b-2t)/t】")
+        label_b = "λpd（耐震）" if seismic else "λp（一般）"
+        lines.append(f"\n【BOX型鋼 寬側板件寬厚比 λb = (b-2t)/t】")
         lines.append(f"  bf = {bf_cm:.1f} cm，tw = {tw_cm:.1f} cm")
-        lines.append(f"  λb  = ({bf_cm:.1f}-2×{tw_cm:.1f}) / {tw_cm:.1f} = {lam_b:.2f}")
-        lines.append(f"  λpb = 1.12×√(Es/Fys) = 1.12×{r:.3f} = {lam_pb:.2f}  ← 緊密斷面限值")
-        lines.append(f"  λrb = 1.40×√(Es/Fys) = 1.40×{r:.3f} = {lam_rb:.2f}  ← 非緊密斷面限值")
+        lines.append(f"  λb   = ({bf_cm:.1f}-2×{tw_cm:.1f}) / {tw_cm:.1f} = {lam_b:.2f}")
+        lines.append(f"  {label_b} = {coeff_b:.2f}×√(Es/Fys) = {coeff_b:.2f}×{r:.3f} = {lam_pb:.2f}")
+        lines.append(f"  λrb  = 2.00×√(Es/Fys) = {lam_rb:.2f}  ← 非緊密斷面上限")
         lines.append(f"  λb = {lam_b:.2f}  → {tag_b}")
 
-        # ── 箱型斷面：深側板件（d方向）────────────────────────
-        lam_d   = (d_cm - 2 * tf_cm) / tf_cm
+        # ─ 深側板件（d方向）────────────────────────────────
+        lam_d  = (d_cm - 2 * tf_cm) / tf_cm
         if lam_d <= lam_pb:
-            tag_d = "✓ 緊密斷面"
+            tag_d = "✓ 緊密斷面（結實斷面）"
         elif lam_d <= lam_rb:
-            tag_d = "△ 非緊密斷面"
+            tag_d = "△ 非緊密斷面（超過λp，不符SRC規範第3.4-3節要求）"
             is_ok = False
         else:
-            tag_d = "✗ 細長斷面"
+            tag_d = "✗ 細長斷面（不得用於包覆型SRC柱）"
             is_ok = False
 
-        lines.append("\n【箱形斷面板件深厚比 (d-2t)/t】")
+        lines.append(f"\n【BOX型鋼 深側板件深厚比 λd = (d-2t)/t】")
         lines.append(f"  d = {d_cm:.1f} cm，tf = {tf_cm:.1f} cm")
-        lines.append(f"  λd  = ({d_cm:.1f}-2×{tf_cm:.1f}) / {tf_cm:.1f} = {lam_d:.2f}")
-        lines.append(f"  λpb = {lam_pb:.2f}，λrb = {lam_rb:.2f}")
+        lines.append(f"  λd   = ({d_cm:.1f}-2×{tf_cm:.1f}) / {tf_cm:.1f} = {lam_d:.2f}")
+        lines.append(f"  {label_b} = {lam_pb:.2f}，λrb = {lam_rb:.2f}")
         lines.append(f"  λd = {lam_d:.2f}  → {tag_d}")
 
     lines.append("\n" + "=" * 60)
-    lines.append(f"  寬厚比判定：{'緊密斷面 ✓  可充分發展塑性彎矩' if is_ok else '非緊密或細長斷面 ✗  強度需折減，請改用較厚板件'}")
+    if is_ok:
+        lines.append(f"  寬厚比判定：✓ 符合 SRC規範第3.4節規定（{design_label}）")
+        lines.append("              斷面為結實斷面，可充分發展塑性彎矩")
+    else:
+        lines.append(f"  寬厚比判定：✗ 不符 SRC規範第3.4節規定（{design_label}）")
+        lines.append("              請改用板厚較大之型鋼，或選用符合限值之斷面")
     lines.append("=" * 60)
     return '\n'.join(lines), is_ok
 
@@ -327,9 +486,11 @@ def check_width_thickness(mat: Material, steel: SteelSection) -> tuple:
 # SRC 梁設計 (規範第5章)
 # ============================================================
 def calc_beam(mat: Material, steel: SteelSection, b, h, cover, As_top, As_bot, Mu,
-              Vu: float = 0.0, Av_s: float = 0.0, s_s: float = 15.0):
+              Vu: float = 0.0, Av_s: float = 0.0, s_s: float = 15.0,
+              seismic: bool = False):
     """
     規範 5.4 強度疊加法 / φMn = φ(Mns + Mnrc)
+    seismic: True = 耐震設計，使用 λpd 限值（表3.4-1 梁）
     """
     # 進行計算
     Mns = steel.Zx * mat.fy_steel / 1e5
@@ -358,8 +519,8 @@ def calc_beam(mat: Material, steel: SteelSection, b, h, cover, As_top, As_bot, M
     phi_Vs = 0.75 * Vs
     phi_Vn = phi_Vns + phi_Vc + phi_Vs
     
-    # 寬厚比
-    wt_report, wt_ok = check_width_thickness(mat, steel)
+    # 寬厚比（表3.4-1 包覆型SRC梁）
+    wt_report, wt_ok = check_width_thickness(mat, steel, member='beam', seismic=seismic)
     
     # 判定
     ok_mu = phi_Mn >= Mu
@@ -412,10 +573,12 @@ def calc_beam(mat: Material, steel: SteelSection, b, h, cover, As_top, As_bot, M
 # SRC 柱設計 (規範第6、7章)
 # ============================================================
 def calc_column(mat: Material, steel: SteelSection, b, h, cover, As, Pu, Mu,
-                Vu: float = 0.0, Av_s: float = 0.0, s_s: float = 15.0):
+                Vu: float = 0.0, Av_s: float = 0.0, s_s: float = 15.0,
+                seismic: bool = False):
     """
     規範 6.4 軸力強度 + 7.3 P-M交互作用 + 7.4 剪力強度疊加
     採用相對剛度分配法
+    seismic: True = 耐震設計，使用 λpd 限值（表3.4-2/3 柱）
     """
     lines = []
     lines.append("=" * 60)
@@ -489,13 +652,15 @@ def calc_column(mat: Material, steel: SteelSection, b, h, cover, As, Pu, Mu,
     lines.append(f"  φPns = 0.9×Fys×As_stl = 0.9×{mat.fy_steel:.0f}×{A_steel:.2f}/1000 = {0.9*Pns:.2f} tf")
     ratio_pu_pns = Pu_s / (0.9 * Pns) if Pns > 0 else 0
     if ratio_pu_pns >= 0.2:
-        chk_s = Pu_s / (0.9 * Pns) + Mu_s / (0.9 * Mns)
-        lines.append(f"  P-M交互作用（Pu_s/φPns={ratio_pu_pns:.3f} ≥ 0.2）：")
-        lines.append(f"  Pu_s/(φPns)+Mu_s/(φMns) = {Pu_s:.2f}/{0.9*Pns:.2f}+{Mu_s:.2f}/{phi_Mns:.3f} = {chk_s:.3f}")
+        # AISC 360 H1-1a：Pu/(φPn) + (8/9)·Mu/(φMn) ≤ 1.0
+        chk_s = Pu_s / (0.9 * Pns) + (8/9) * Mu_s / (0.9 * Mns)
+        lines.append(f"  P-M交互作用（Pu_s/φPns={ratio_pu_pns:.3f} ≥ 0.2，AISC H1-1a）：")
+        lines.append(f"  Pu_s/(φPns)+(8/9)×Mu_s/(φMns) = {Pu_s:.2f}/{0.9*Pns:.2f}+(8/9)×{Mu_s:.2f}/{phi_Mns:.3f} = {chk_s:.3f}")
     else:
-        chk_s = Pu_s / (1.8 * Pns) + Mu_s / (0.9 * Mns)
-        lines.append(f"  P-M交互作用（Pu_s/φPns={ratio_pu_pns:.3f} < 0.2）：")
-        lines.append(f"  Pu_s/(1.8Pns)+Mu_s/(φMns) = {Pu_s:.2f}/{1.8*Pns:.2f}+{Mu_s:.2f}/{phi_Mns:.3f} = {chk_s:.3f}")
+        # AISC 360 H1-1b：Pu/(2φPn) + Mu/(φMn) ≤ 1.0
+        chk_s = Pu_s / (2 * 0.9 * Pns) + Mu_s / (0.9 * Mns)
+        lines.append(f"  P-M交互作用（Pu_s/φPns={ratio_pu_pns:.3f} < 0.2，AISC H1-1b）：")
+        lines.append(f"  Pu_s/(2φPns)+Mu_s/(φMns) = {Pu_s:.2f}/{2*0.9*Pns:.2f}+{Mu_s:.2f}/{phi_Mns:.3f} = {chk_s:.3f}")
     ok_s = "✓ OK" if chk_s <= 1.0 else "✗ NG"
     lines.append(f"  鋼骨P-M比值 = {chk_s:.3f} → {ok_s}")
 
@@ -544,19 +709,19 @@ def calc_column(mat: Material, steel: SteelSection, b, h, cover, As, Pu, Mu,
     # 五、最小鋼筋比檢核
     # ══════════════════════════════════════════════════════
     rho     = As / (b * d_rc)
-    rho_min = max(14.0 / mat.fy_rebar, 0.8 * math.sqrt(mat.fc) / mat.fy_rebar)
+    # 規範 6.2.1：SRC柱縱筋比 ρ ≥ 1%（0.010）
+    # ACI 318-14 §10.6.1.1 柱最小鋼筋比亦為 0.01
+    rho_min = 0.01
     rho_max = 0.08
     ok_rho     = rho >= rho_min
     ok_rho_max = rho <= rho_max
     tag_rho    = "✓ OK" if ok_rho else "✗ NG"
 
-    lines.append("\n【五、最小鋼筋比檢核】(規範 6.2 / ACI 318 §10.6)")
+    lines.append("\n【五、縱向鋼筋比檢核】(規範 6.2.1 / ACI 318 §10.6.1.1)")
     lines.append(f"  ρ = As/(b×d)  = {As:.2f}/({b}×{d_rc:.1f}) = {rho:.5f}")
-    lines.append(f"  ρmin = max(14/Fyr, 0.8√fc'/Fyr)")
-    lines.append(f"       = max({14/mat.fy_rebar:.5f}, {0.8*math.sqrt(mat.fc)/mat.fy_rebar:.5f})")
-    lines.append(f"       = {rho_min:.5f}")
-    lines.append(f"  ρmax = 0.080（SRC柱縱筋比上限）")
-    lines.append(f"  ρ = {rho:.5f} {'≥' if ok_rho else '<'} ρmin = {rho_min:.5f} → {tag_rho}")
+    lines.append(f"  ρmin = 0.010（規範6.2.1：SRC柱縱筋比不得小於1%）")
+    lines.append(f"  ρmax = 0.080（規範6.2.2：SRC柱縱筋比上限8%）")
+    lines.append(f"  ρ = {rho:.5f} {'≥' if ok_rho else '<'} ρmin = {rho_min:.3f} → {tag_rho}")
     lines.append(f"  ρ = {rho:.5f} {'≤' if ok_rho_max else '>'} ρmax = {rho_max:.3f} → {'✓ OK' if ok_rho_max else '✗ NG（超過上限）'}")
 
     # ══════════════════════════════════════════════════════
@@ -594,7 +759,14 @@ def calc_column(mat: Material, steel: SteelSection, b, h, cover, As, Pu, Mu,
     phi_Vns_col = 0.9 * Vns_col
 
     # ── (2) RC 剪力強度 φVnrc = φVc + φVs ──────────────────
-    Vc_col      = 0.53 * math.sqrt(mat.fc) * b * d_rc / 1000
+    # 規範7.4.2引用ACI 318-14 §22.5.6.1：含軸力修正
+    # Vc = 0.53√fc'·(1 + Nu/(140·Ag))·b·d（Nu 為壓力正值，kgf；Ag 為 cm²）
+    # Nu/Ag 以 kgf/cm² 計；Nu = Pu × 1000（tf→kgf）
+    A_gross_col = b * h
+    Nu_kgf      = Pu * 1000          # tf → kgf（壓力正值）
+    axial_factor = 1.0 + Nu_kgf / (140.0 * A_gross_col)   # ACI 22.5.6.1 修正項
+    axial_factor = max(axial_factor, 0.0)  # 拉力時不得小於0
+    Vc_col      = 0.53 * math.sqrt(mat.fc) * axial_factor * b * d_rc / 1000
     phi_Vc_col  = 0.75 * Vc_col
     Vs_col      = (Av_s * mat.fy_rebar * d_rc / s_s / 1000) if (Av_s > 0 and s_s > 0) else 0.0
     phi_Vs_col  = 0.75 * Vs_col
@@ -625,8 +797,10 @@ def calc_column(mat: Material, steel: SteelSection, b, h, cover, As, Pu, Mu,
     lines.append(f"  φVns = 0.9×{Vns_col:.3f} = {phi_Vns_col:.3f} tf")
 
     # ── (6) 計算書：RC 剪力強度 ────────────────────────────
-    lines.append(f"\n  ─ RC 剪力強度 φVnrc = φVc + φVs ─")
-    lines.append(f"  Vc = 0.53×√fc'×b×d/1000 = 0.53×√{mat.fc:.0f}×{b}×{d_rc:.1f}/1000 = {Vc_col:.3f} tf")
+    lines.append(f"\n  ─ RC 剪力強度 φVnrc = φVc + φVs（規範7.4.2 / ACI §22.5.6.1）─")
+    lines.append(f"  Nu = Pu×1000 = {Nu_kgf:.0f} kgf（壓力正值），Ag = {A_gross_col} cm²")
+    lines.append(f"  軸力修正係數 = 1 + Nu/(140·Ag) = 1 + {Nu_kgf:.0f}/(140×{A_gross_col}) = {axial_factor:.4f}")
+    lines.append(f"  Vc = 0.53×√fc'×{axial_factor:.4f}×b×d/1000 = 0.53×√{mat.fc:.0f}×{axial_factor:.4f}×{b}×{d_rc:.1f}/1000 = {Vc_col:.3f} tf")
     lines.append(f"  φVc = 0.75×{Vc_col:.3f} = {phi_Vc_col:.3f} tf")
     if Av_s > 0:
         lines.append(f"  Vs = Av×Fyr×d/(s×1000) = {Av_s:.2f}×{mat.fy_rebar:.0f}×{d_rc:.1f}/({s_s:.1f}×1000) = {Vs_col:.3f} tf")
@@ -693,7 +867,8 @@ def calc_column(mat: Material, steel: SteelSection, b, h, cover, As, Pu, Mu,
     lines.append(f"  ★ {'設計安全 ✓  所有檢核均通過' if is_safe else '設計不足 ✗  請檢視不通過項目並加大斷面或配筋'}")
     lines.append("=" * 60)
 
-    wt_report, wt_ok = check_width_thickness(mat, steel)
+    # 寬厚比（表3.4-2/3 包覆型SRC柱）
+    wt_report, wt_ok = check_width_thickness(mat, steel, member='column', seismic=seismic)
     lines.append("")
     lines.append(wt_report)
 
@@ -811,7 +986,7 @@ def draw_beam_section(fig, ax, steel: SteelSection, b, h, cover,
     ax.set_title(f'圖C5.2.1 包覆型SRC梁斷面配筋示意\n'
                  f'b×h={b}×{h}cm  鋼骨:{steel.name}\n'
                  f'上筋:{top_rebars}-{top_size}  下筋:{bot_rebars}-{bot_size}',
-                 fontsize=12, fontweight='bold')
+                 fontsize=12, fontweight='bold', fontproperties=_CJK_FONT)
 
     # 圖例
     legend_elements = [
@@ -821,7 +996,8 @@ def draw_beam_section(fig, ax, steel: SteelSection, b, h, cover,
         mpatches.Patch(fc='#0044CC', ec='black', label=f'下筋 {bot_rebars}-{bot_size}'),
     ]
     ax.legend(handles=legend_elements, loc='upper left', fontsize=9,
-               bbox_to_anchor=(1.02, 1), borderaxespad=0, framealpha=0.8)
+               bbox_to_anchor=(1.02, 1), borderaxespad=0, framealpha=0.8,
+               prop=_CJK_FONT)
 
 
 # ============================================================
@@ -910,7 +1086,7 @@ def draw_column_section(fig, ax, steel: SteelSection, b, h, cover,
     ax.set_title(f'圖C6.2.1 包覆型SRC柱斷面配筋示意\n'
                  f'b×h={b}×{h}cm  鋼骨:{steel.name}\n'
                  f'縱筋:{num_bars}-{bar_size}',
-                 fontsize=12, fontweight='bold')
+                 fontsize=12, fontweight='bold', fontproperties=_CJK_FONT)
 
     legend_elements = [
         mpatches.Patch(fc='#D0D0D0', ec='black', label='混凝土'),
@@ -918,7 +1094,8 @@ def draw_column_section(fig, ax, steel: SteelSection, b, h, cover,
         mpatches.Patch(fc='#CC0000', ec='black', label=f'縱筋 {num_bars}-{bar_size}'),
     ]
     ax.legend(handles=legend_elements, loc='upper left', fontsize=9,
-               bbox_to_anchor=(1.02, 1), borderaxespad=0, framealpha=0.8)
+               bbox_to_anchor=(1.02, 1), borderaxespad=0, framealpha=0.8,
+               prop=_CJK_FONT)
 
 
 # ============================================================
