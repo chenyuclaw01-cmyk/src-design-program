@@ -2061,8 +2061,16 @@ with tab_col:
             import numpy as np
             from mpl_toolkits.mplot3d import Axes3D
             
-            # 使用精確版本（纖維分割法）
-            Mx, My, P = gen_pm_surface_accurate(mat, c_stl, cw, ch, cc, As_col, pts=20)
+            # 嘗試使用精確版本，失敗則用近似版本
+            try:
+                Mx, My, P = gen_pm_surface_accurate(mat, c_stl, cw, ch, cc, As_col, pts=15)
+            except Exception as e1:
+                try:
+                    Mx, My, P = gen_pm_surface(mat, c_stl, cw, ch, cc, As_col, pts=20)
+                except Exception as e2:
+                    st.warning(f"3D曲面生成失敗，使用2D曲線代替")
+                    st.pyplot(fig)  # 仍顯示2D
+                    st.stop()
             
             fig3d = plt.figure(figsize=(10, 8))
             ax3d = fig3d.add_subplot(111, projection='3d')
