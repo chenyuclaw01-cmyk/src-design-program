@@ -576,52 +576,98 @@ def calc_column(mat: Material, steel: SteelSection, b, h, cover, As, Pu, Mu,
     lines.append(f"  RC部分P-M（ACI 7.3.2）= {chk_r:.3f} → {ok_r}")
     lines.append(f"  疊加彎矩：φMn = {phi_Mn_total:.3f} tf-m，Mu = {Mu:.2f} tf-m，D/C = {dc_M:.3f} → {tag_mu}")
 
-    # ── 七、剪力強度檢核 ────────────────────────────────────
-    lines.append("\n【七、剪力強度檢核】(規範 5.5 / 7.4 強度疊加法)")
-    # 鋼骨腹板剪力
+    # ══════════════════════════════════════════════════════
+    # 七、剪力強度檢核（彎矩分配法，規範 7.4）
+    # ══════════════════════════════════════════════════════
+    lines.append("\n【七、剪力強度檢核】(規範 7.4 彎矩分配法)")
+    lines.append("  方法：依彎矩分配比將 Vu 分給鋼骨（Vu_s）與RC（Vu_rc），分別檢核")
+
+    # ── (1) 鋼骨腹板剪力強度 φVns ─────────────────────────
     s_d_cm  = steel.d  / 10
     s_tw_cm = steel.tw / 10
     s_tf_cm = steel.tf / 10
     if steel.section_type == 'BOX':
-        # BOX型：兩側腹板共同抵抗剪力（平行受剪方向取h向）
         Aw_col = 2 * s_tw_cm * (s_d_cm - 2 * s_tf_cm)
     else:
         Aw_col = s_tw_cm * (s_d_cm - 2 * s_tf_cm)
-    Vns_col  = 0.6 * mat.fy_steel * Aw_col / 1000
+    Vns_col     = 0.6 * mat.fy_steel * Aw_col / 1000
     phi_Vns_col = 0.9 * Vns_col
-    # RC混凝土剪力
-    Vc_col   = 0.53 * math.sqrt(mat.fc) * b * d_rc / 1000
-    phi_Vc_col = 0.75 * Vc_col
-    # 箍筋剪力
-    Vs_col   = (Av_s * mat.fy_rebar * d_rc / s_s / 1000) if (Av_s > 0 and s_s > 0) else 0.0
-    phi_Vs_col = 0.75 * Vs_col
-    # 疊加剪力強度
-    phi_Vn_col = phi_Vns_col + phi_Vc_col + phi_Vs_col
 
-    lines.append("  「強度疊加法」：φVn = φVns（鋼骨腹板）+ φVc（混凝土）+ φVs（箍筋）")
+    # ── (2) RC 剪力強度 φVnrc = φVc + φVs ──────────────────
+    Vc_col      = 0.53 * math.sqrt(mat.fc) * b * d_rc / 1000
+    phi_Vc_col  = 0.75 * Vc_col
+    Vs_col      = (Av_s * mat.fy_rebar * d_rc / s_s / 1000) if (Av_s > 0 and s_s > 0) else 0.0
+    phi_Vs_col  = 0.75 * Vs_col
+    phi_Vnrc_col = phi_Vc_col + phi_Vs_col   # RC 剪力強度合計
+
+    # ── (3) 總剪力強度 φVn = φVns + φVnrc ─────────────────
+    phi_Vn_col = phi_Vns_col + phi_Vnrc_col
+
+    # ── (4) 彎矩分配比 ────────────────────────────────────
+    Mn_total = Mns + Mn_rc   # 名目彎矩（未乘 φ）合計（tf-m）
+    r_vns  = Mns  / Mn_total if Mn_total > 0 else 0.5
+    r_vnrc = Mn_rc / Mn_total if Mn_total > 0 else 0.5
+
+    lines.append(f"\n  ─ 彎矩比例計算 ─")
+    lines.append(f"  Mns  = {Mns:.3f} tf-m（鋼骨名目彎矩）")
+    lines.append(f"  Mnrc = {Mn_rc:.3f} tf-m（RC名目彎矩）")
+    lines.append(f"  Mn   = Mns + Mnrc = {Mns:.3f} + {Mn_rc:.3f} = {Mn_total:.3f} tf-m")
+    lines.append(f"  r_s  = Mns/Mn  = {Mns:.3f}/{Mn_total:.3f} = {r_vns:.4f}")
+    lines.append(f"  r_rc = Mnrc/Mn = {Mn_rc:.3f}/{Mn_total:.3f} = {r_vnrc:.4f}")
+
+    # ── (5) 計算書：鋼骨腹板剪力強度 ─────────────────────
+    lines.append(f"\n  ─ 鋼骨腹板剪力強度 φVns ─")
     if steel.section_type == 'BOX':
         lines.append(f"  BOX型鋼：Aw = 2×tw×(d-2tf) = 2×{s_tw_cm:.1f}×({s_d_cm:.1f}-2×{s_tf_cm:.2f}) = {Aw_col:.2f} cm²")
     else:
         lines.append(f"  H型鋼：Aw = tw×(d-2tf) = {s_tw_cm:.1f}×({s_d_cm:.1f}-2×{s_tf_cm:.2f}) = {Aw_col:.2f} cm²")
     lines.append(f"  Vns = 0.6×Fys×Aw = 0.6×{mat.fy_steel:.0f}×{Aw_col:.2f}/1000 = {Vns_col:.3f} tf")
-    lines.append(f"  φVns = 0.9×Vns = 0.9×{Vns_col:.3f} = {phi_Vns_col:.3f} tf")
+    lines.append(f"  φVns = 0.9×{Vns_col:.3f} = {phi_Vns_col:.3f} tf")
+
+    # ── (6) 計算書：RC 剪力強度 ────────────────────────────
+    lines.append(f"\n  ─ RC 剪力強度 φVnrc = φVc + φVs ─")
     lines.append(f"  Vc = 0.53×√fc'×b×d/1000 = 0.53×√{mat.fc:.0f}×{b}×{d_rc:.1f}/1000 = {Vc_col:.3f} tf")
-    lines.append(f"  φVc = 0.75×Vc = 0.75×{Vc_col:.3f} = {phi_Vc_col:.3f} tf")
+    lines.append(f"  φVc = 0.75×{Vc_col:.3f} = {phi_Vc_col:.3f} tf")
     if Av_s > 0:
         lines.append(f"  Vs = Av×Fyr×d/(s×1000) = {Av_s:.2f}×{mat.fy_rebar:.0f}×{d_rc:.1f}/({s_s:.1f}×1000) = {Vs_col:.3f} tf")
-        lines.append(f"  φVs = 0.75×Vs = 0.75×{Vs_col:.3f} = {phi_Vs_col:.3f} tf")
+        lines.append(f"  φVs = 0.75×{Vs_col:.3f} = {phi_Vs_col:.3f} tf")
     else:
-        lines.append("  φVs = 0.000 tf（未輸入箍筋剪力筋面積）")
-    lines.append(f"  φVn = {phi_Vns_col:.3f} + {phi_Vc_col:.3f} + {phi_Vs_col:.3f} = {phi_Vn_col:.3f} tf")
+        lines.append("  φVs = 0.000 tf（未輸入箍筋）")
+    lines.append(f"  φVnrc = φVc + φVs = {phi_Vc_col:.3f} + {phi_Vs_col:.3f} = {phi_Vnrc_col:.3f} tf")
+
+    # ── (7) 彎矩分配法檢核 ────────────────────────────────
+    lines.append(f"\n  ─ 彎矩分配法分別檢核 ─")
     ok_vu = True
+    ok_vu_s   = True
+    ok_vu_rc  = True
+    dc_vu     = 0.0
+    dc_vu_s   = 0.0
+    dc_vu_rc  = 0.0
     if Vu > 0:
-        dc_vu = Vu / phi_Vn_col if phi_Vn_col > 0 else 999
-        ok_vu = (dc_vu <= 1.0)
+        Vu_s  = r_vns  * Vu   # 鋼骨分配剪力
+        Vu_rc = r_vnrc * Vu   # RC 分配剪力
+        lines.append(f"  Vu_s  = r_s × Vu  = {r_vns:.4f} × {Vu:.2f} = {Vu_s:.3f} tf（鋼骨分配剪力）")
+        lines.append(f"  Vu_rc = r_rc × Vu = {r_vnrc:.4f} × {Vu:.2f} = {Vu_rc:.3f} tf（RC 分配剪力）")
+        # 鋼骨檢核
+        dc_vu_s  = Vu_s  / phi_Vns_col  if phi_Vns_col  > 0 else 999
+        ok_vu_s  = dc_vu_s  <= 1.0
+        tag_s_v  = '✓ OK' if ok_vu_s  else '✗ NG'
+        lines.append(f"  ① 鋼骨：Vu_s={Vu_s:.3f} tf {'≤' if ok_vu_s else '>'} φVns={phi_Vns_col:.3f} tf，D/C={dc_vu_s:.3f} → {tag_s_v}")
+        # RC 檢核
+        dc_vu_rc = Vu_rc / phi_Vnrc_col if phi_Vnrc_col > 0 else 999
+        ok_vu_rc = dc_vu_rc <= 1.0
+        tag_rc_v = '✓ OK' if ok_vu_rc else '✗ NG'
+        lines.append(f"  ② RC ：Vu_rc={Vu_rc:.3f} tf {'≤' if ok_vu_rc else '>'} φVnrc={phi_Vnrc_col:.3f} tf，D/C={dc_vu_rc:.3f} → {tag_rc_v}")
+        # 總剪力
+        dc_vu  = Vu / phi_Vn_col if phi_Vn_col > 0 else 999
+        ok_vu  = ok_vu_s and ok_vu_rc and (dc_vu <= 1.0)
         tag_vu = '✓ OK' if ok_vu else '✗ NG'
-        lines.append(f"  Vu = {Vu:.2f} tf{'≤' if ok_vu else '>'} φVn = {phi_Vn_col:.3f} tf，D/C = {dc_vu:.3f} → {tag_vu}")
+        lines.append(f"  ③ 總計：φVn = φVns + φVnrc = {phi_Vns_col:.3f} + {phi_Vnrc_col:.3f} = {phi_Vn_col:.3f} tf")
+        lines.append(f"     Vu = {Vu:.2f} tf {'≤' if ok_vu else '>'} φVn = {phi_Vn_col:.3f} tf，D/C = {dc_vu:.3f} → {tag_vu}")
     else:
-        dc_vu = 0.0
-        lines.append("  （未輸入設計剪力 Vu，剪力強度僅供參考）")
+        lines.append(f"  φVns  = {phi_Vns_col:.3f} tf（鋼骨腹板）")
+        lines.append(f"  φVnrc = {phi_Vnrc_col:.3f} tf（RC = φVc + φVs）")
+        lines.append(f"  φVn   = {phi_Vn_col:.3f} tf（未輸入 Vu，無法 D/C 檢核）")
 
     # ══════════════════════════════════════════════════════
     # 八、結論
@@ -639,6 +685,8 @@ def calc_column(mat: Material, steel: SteelSection, b, h, cover, As, Pu, Mu,
     lines.append(f"  ⑤ 最小鋼筋比：ρ={rho:.5f}，ρmin={rho_min:.5f} → {tag_rho}")
     if Vu > 0:
         lines.append(f"  ⑥ 剪力強度 ：Vu={Vu:.2f} tf，φVn={phi_Vn_col:.3f} tf，D/C={dc_vu:.3f} → {'✓ OK' if ok_vu else '✗ NG'}")
+        lines.append(f"      鋼骨：Vu_s={r_vns*Vu:.3f} tf，φVns={phi_Vns_col:.3f} tf，D/C={dc_vu_s:.3f} → {'✓' if ok_vu_s else '✗'}")
+        lines.append(f"      RC ：Vu_rc={r_vnrc*Vu:.3f} tf，φVnrc={phi_Vnrc_col:.3f} tf，D/C={dc_vu_rc:.3f} → {'✓' if ok_vu_rc else '✗'}")
     else:
         lines.append(f"  ⑥ 剪力強度 ：φVn={phi_Vn_col:.3f} tf（未輸入 Vu，無法D/C檢核）")
     lines.append("-" * 60)
@@ -660,7 +708,10 @@ def calc_column(mat: Material, steel: SteelSection, b, h, cover, As, Pu, Mu,
         'wt_ok': wt_ok,      'rho': rho,        'rho_min': rho_min,
         'ok_rho': ok_rho,    'dc_P': dc_P,      'ok_pu': ok_pu,
         'dc_M': dc_M,        'ok_mu': ok_mu,
-        'phi_Vn': phi_Vn_col, 'Vu': Vu,         'dc_vu': dc_vu, 'ok_vu': ok_vu
+        'phi_Vn': phi_Vn_col,  'phi_Vnrc': phi_Vnrc_col, 'phi_Vns': phi_Vns_col,
+        'Vu': Vu,              'dc_vu': dc_vu,   'ok_vu': ok_vu,
+        'dc_vu_s': dc_vu_s,    'ok_vu_s': ok_vu_s,
+        'dc_vu_rc': dc_vu_rc,  'ok_vu_rc': ok_vu_rc
     }
     return '\n'.join(lines), result
 
@@ -927,18 +978,24 @@ def show_beam_summary(res: dict, Mu: float, Vu: float):
 
 def show_column_summary(res: dict, Pu: float, Mu: float):
     """顯示柱設計分析成果摘要"""
-    ok       = res['is_safe']
-    phi_Pn   = res['phi_Pn']
-    chk_s    = res['chk_s']
-    chk_r    = res['chk_r']
-    phi_Mn   = res.get('phi_Mn', 0.0)
-    phi_Vn   = res.get('phi_Vn', 0.0)
-    Vu       = res.get('Vu', 0.0)
-    dc_vu    = res.get('dc_vu', 0.0)
-    ok_vu    = res.get('ok_vu', True)
-    dc_M     = res.get('dc_M', Mu / phi_Mn if phi_Mn > 0 else 0)
-    ok_mu    = res.get('ok_mu', phi_Mn >= Mu)
-    dc_P     = Pu / phi_Pn if phi_Pn > 0 else 0
+    ok        = res['is_safe']
+    phi_Pn    = res['phi_Pn']
+    chk_s     = res['chk_s']
+    chk_r     = res['chk_r']
+    phi_Mn    = res.get('phi_Mn', 0.0)
+    phi_Vn    = res.get('phi_Vn', 0.0)
+    phi_Vns   = res.get('phi_Vns', 0.0)
+    phi_Vnrc  = res.get('phi_Vnrc', 0.0)
+    Vu        = res.get('Vu', 0.0)
+    dc_vu     = res.get('dc_vu', 0.0)
+    ok_vu     = res.get('ok_vu', True)
+    dc_vu_s   = res.get('dc_vu_s', 0.0)
+    ok_vu_s   = res.get('ok_vu_s', True)
+    dc_vu_rc  = res.get('dc_vu_rc', 0.0)
+    ok_vu_rc  = res.get('ok_vu_rc', True)
+    dc_M      = res.get('dc_M', Mu / phi_Mn if phi_Mn > 0 else 0)
+    ok_mu     = res.get('ok_mu', phi_Mn >= Mu)
+    dc_P      = Pu / phi_Pn if phi_Pn > 0 else 0
 
     if ok:
         st.success('✅ **設計安全 — 所有檢核均通過**')
@@ -980,16 +1037,20 @@ def show_column_summary(res: dict, Pu: float, Mu: float):
     cols2 = st.columns(2)
     with cols2[0]:
         if Vu > 0:
-            cv    = _dc_color(dc_vu)
-            tag_v = '✓ OK' if ok_vu else '✗ NG'
+            cv      = _dc_color(dc_vu)
+            tag_v   = '✓ OK' if ok_vu   else '✗ NG'
+            tag_vs  = '✓' if ok_vu_s  else '✗'
+            tag_vrc = '✓' if ok_vu_rc else '✗'
+            sub_txt = (f'Vu={Vu:.2f} tf，φVn={phi_Vn:.2f} tf，D/C={dc_vu:.3f} {tag_v}　'
+                       f'鋼骨 D/C={dc_vu_s:.3f} {tag_vs}，RC D/C={dc_vu_rc:.3f} {tag_vrc}')
             st.markdown(_card('剪力強度 φVn',
                               f'{phi_Vn:.2f} tf',
-                              f'Vu = {Vu:.2f} tf　D/C = {dc_vu:.3f}　{tag_v}', cv),
+                              sub_txt, cv),
                         unsafe_allow_html=True)
         else:
             st.markdown(_card('剪力強度 φVn',
                               f'{phi_Vn:.2f} tf',
-                              '未輸入 Vu，剪力強度供參考', '#17a589'),
+                              f'φVns={phi_Vns:.2f} tf（鋼骨），φVnrc={phi_Vnrc:.2f} tf（RC），未輸入 Vu', '#17a589'),
                         unsafe_allow_html=True)
     with cols2[1]:
         wc   = '#27ae60' if res['wt_ok'] else '#e74c3c'
