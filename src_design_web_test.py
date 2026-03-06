@@ -9,12 +9,15 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 
-# 載入自帶的中文字體
-font_path = os.path.join(os.path.dirname(__file__), 'NotoSansTC-Regular.otf')
-if os.path.exists(font_path):
-    fm.fontManager.addfont(font_path)
-    plt.rcParams['font.family'] = ['Noto Sans TC', 'DejaVu Sans', 'sans-serif']
-else:
+# 載入中文字體（Streamlit Cloud 相容）
+try:
+    font_path = os.path.join(os.path.dirname(__file__), 'NotoSansTC-Regular.otf')
+    if os.path.exists(font_path):
+        from matplotlib import font_manager as fm
+        # 使用 FontProperties 而非直接 addfont
+        font_prop = fm.FontProperties(fname=font_path)
+        plt.rcParams['font.family'] = ['Noto Sans TC', 'DejaVu Sans', 'sans-serif']
+except Exception:
     plt.rcParams['font.family'] = ['DejaVu Sans', 'sans-serif']
 plt.rcParams['axes.unicode_minus'] = False  # 解決負號顯示問題
 
