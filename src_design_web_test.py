@@ -980,6 +980,16 @@ def draw_beam_section(fig, ax, steel: SteelSection, b, h, cover,
     """
     依規範包覆型SRC梁斷面配筋示意
     """
+    # 設定中文字體（適用於 Streamlit Cloud）
+    try:
+        from matplotlib.font_manager import FontProperties
+        # 嘗試使用系統中文字體
+        font_cn = FontProperties(family=['Microsoft JhengHei', 'PingFang TC', 
+                                         'Noto Sans CJK TC', 'WenQuanYi Zen Hei', 
+                                         'DejaVu Sans'])
+    except Exception:
+        font_cn = None
+    
     ax.set_aspect('equal')
     ax.set_xlim(-b/2 - 5, b/2 + 5)
     ax.set_ylim(-h/2 - 5, h/2 + 5)
@@ -1042,7 +1052,7 @@ def draw_beam_section(fig, ax, steel: SteelSection, b, h, cover,
     ax.set_title(f'包覆型SRC梁斷面配筋示意\n'
                  f'b×h={b}×{h}cm  鋼骨:{steel.name}\n'
                  f'上筋:{top_rebars}-{top_size}  下筋:{bot_rebars}-{bot_size}',
-                 fontsize=14, fontweight='bold')
+                 fontsize=14, fontweight='bold', fontproperties=font_cn)
 
     # 圖例
     legend_elements = [
@@ -1052,7 +1062,7 @@ def draw_beam_section(fig, ax, steel: SteelSection, b, h, cover,
         mpatches.Patch(fc='#0044CC', ec='black', label=f'下筋 {bot_rebars}-{bot_size}'),
     ]
     ax.legend(handles=legend_elements, loc='upper left', fontsize=9,
-               bbox_to_anchor=(1.02, 1), borderaxespad=0, framealpha=0.8)
+               bbox_to_anchor=(1.02, 1), borderaxespad=0, framealpha=0.8, prop=font_cn)
 
 
 # ============================================================
@@ -1063,6 +1073,15 @@ def draw_column_section(fig, ax, steel: SteelSection, b, h, cover,
     """
     依規範包覆型SRC柱斷面配筋示意
     """
+    # 設定中文字體（適用於 Streamlit Cloud）
+    try:
+        from matplotlib.font_manager import FontProperties
+        font_cn = FontProperties(family=['Microsoft JhengHei', 'PingFang TC', 
+                                         'Noto Sans CJK TC', 'WenQuanYi Zen Hei', 
+                                         'DejaVu Sans'])
+    except Exception:
+        font_cn = None
+    
     ax.set_aspect('equal')
     ax.set_xlim(-b/2 - 5, b/2 + 5)
     ax.set_ylim(-h/2 - 5, h/2 + 5)
@@ -1141,7 +1160,7 @@ def draw_column_section(fig, ax, steel: SteelSection, b, h, cover,
     ax.set_title(f'包覆型SRC柱斷面配筋示意\n'
                  f'b×h={b}×{h}cm  鋼骨:{steel.name}\n'
                  f'縱筋:{num_bars}-{bar_size}',
-                 fontsize=14, fontweight='bold')
+                 fontsize=14, fontweight='bold', fontproperties=font_cn)
 
     legend_elements = [
         mpatches.Patch(fc='#D0D0D0', ec='black', label='混凝土'),
@@ -1149,7 +1168,7 @@ def draw_column_section(fig, ax, steel: SteelSection, b, h, cover,
         mpatches.Patch(fc='#CC0000', ec='black', label=f'縱筋 {num_bars}-{bar_size}'),
     ]
     ax.legend(handles=legend_elements, loc='upper left', fontsize=9,
-               bbox_to_anchor=(1.02, 1), borderaxespad=0, framealpha=0.8)
+               bbox_to_anchor=(1.02, 1), borderaxespad=0, framealpha=0.8, prop=font_cn)
 
 
 # ============================================================
@@ -1648,10 +1667,18 @@ with tab_pm:
                    label=f'設計點 ({pm_Pu:.0f} tf, {pm_Mu:.0f} tf-m)')
         ax.axhline(0, color='gray', ls='--', lw=0.8)
         ax.axvline(0, color='gray', ls='--', lw=0.8)
-        ax.set_xlabel('彎矩 M (tf-m)', fontsize=12)
-        ax.set_ylabel('軸力 P (tf)', fontsize=12)
-        ax.set_title(f'SRC 柱 P-M 互制曲線\n{pm_stl.name} / {pm_b}×{pm_h}cm / {pm_n}-{pm_s}', fontsize=12)
-        ax.legend(fontsize=10)
+        # 設定中文字體
+        try:
+            from matplotlib.font_manager import FontProperties
+            font_cn = FontProperties(family=['Microsoft JhengHei', 'PingFang TC', 
+                                             'Noto Sans CJK TC', 'WenQuanYi Zen Hei', 
+                                             'DejaVu Sans'])
+        except Exception:
+            font_cn = None
+        ax.set_xlabel('彎矩 M (tf-m)', fontsize=12, fontproperties=font_cn)
+        ax.set_ylabel('軸力 P (tf)', fontsize=12, fontproperties=font_cn)
+        ax.set_title(f'SRC 柱 P-M 互制曲線\n{pm_stl.name} / {pm_b}×{pm_h}cm / {pm_n}-{pm_s}', fontsize=12, fontproperties=font_cn)
+        ax.legend(fontsize=10, prop=font_cn)
         ax.grid(alpha=0.3)
         st.pyplot(fig)
 
