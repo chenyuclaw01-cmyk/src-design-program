@@ -1491,25 +1491,29 @@ def show_beam_summary(res: dict, Mu: float, Vu: float):
         st.markdown(_card('鋼骨寬厚比', wtxt, '依SRC規範第3章', wc),
                     unsafe_allow_html=True)
 
-def show_column_summary(res: dict, Pu: float, Mu: float):
-    """顯示柱設計分析成果摘要"""
+def show_column_summary(res: dict, Pu: float, Mux: float, Muy: float = 0.0):
+    """顯示柱設計分析成果摘要（雙向彎矩）"""
     ok        = res['is_safe']
     phi_Pn    = res['phi_Pn']
     chk_s     = res['chk_s']
     chk_r     = res['chk_r']
     phi_Mn    = res.get('phi_Mn', 0.0)
+    phi_Mnx   = res.get('phi_Mnx', phi_Mn)  # X軸彎矩強度
+    phi_Mny   = res.get('phi_Mny', phi_Mn)  # Y軸彎矩強度
     phi_Vn    = res.get('phi_Vn', 0.0)
     phi_Vns   = res.get('phi_Vns', 0.0)
     phi_Vnrc  = res.get('phi_Vnrc', 0.0)
     Vu        = res.get('Vu', 0.0)
     dc_vu     = res.get('dc_vu', 0.0)
     ok_vu     = res.get('ok_vu', True)
-    dc_vu_s   = res.get('dc_vu_s', 0.0)
-    ok_vu_s   = res.get('ok_vu_s', True)
-    dc_vu_rc  = res.get('dc_vu_rc', 0.0)
-    ok_vu_rc  = res.get('ok_vu_rc', True)
-    dc_M      = res.get('dc_M', Mu / phi_Mn if phi_Mn > 0 else 0)
-    ok_mu     = res.get('ok_mu', phi_Mn >= Mu)
+    dc_vu_s   = res.get('dc_Vu_s', 0.0)
+    ok_vu_s   = res.get('ok_Vu_s', True)
+    dc_vu_rc  = res.get('dc_Vu_rc', 0.0)
+    ok_vu_rc  = res.get('ok_Vu_rc', True)
+    # 雙向彎矩取合力
+    Mu_total = (Mux**2 + Muy**2) ** 0.5 if Muy != 0 else Mux
+    dc_M      = res.get('dc_M', Mu_total / phi_Mn if phi_Mn > 0 else 0)
+    ok_mu     = res.get('ok_mu', phi_Mn >= Mu_total)
     dc_P      = Pu / phi_Pn if phi_Pn > 0 else 0
 
     if ok:
@@ -1758,7 +1762,11 @@ with tab_col:
         As_col = c_num * REBAR_DB[c_siz]
         st.info(f"As = {As_col:.2f} cm²")
         Pu_c = st.number_input("設計軸力 Pu (tf)", value=200.0, key='Pu_c')
-        Mu_c = st.number_input("設計彎矩 Mu (tf-m)", value=30.0, key='Mu_c')
+        c_mx_my = st.columns(2)
+        with c_mx_my[0]:
+            Mux_c = st.number_input("設計彎矩 Mux (tf-m)", value=30.0, key='Mux_c')
+        with c_mx_my[1]:
+            Muy_c = st.number_input("設計彎矩 Muy (tf-m)", value=0.0, key='Muy_c')
         Vu_c = st.number_input("設計剪力 Vu (tf)", value=0.0, min_value=0.0, key='Vu_c')
         st.markdown("**柱剪力筋（箍筋）**")
         cstir_c, cstir_sp = st.columns(2)
@@ -1778,10 +1786,10 @@ with tab_col:
         plt.close(_fig2)
     st.divider()
     if st.button("🔢 計算柱設計", type="primary", key='btn_col'):
-        report, res = calc_column(mat, c_stl, cw, ch, cc, As_col, Pu_c, Mu_c,
+        report, res = calc_column(mat, c_stl, cw, ch, cc, As_col, Pu_c, Mux=Mux_c, Muy=Muy_c,
                                   Vu=Vu_c, Av_s=Av_c, s_s=float(c_stir_s))
         st.markdown("#### 📊 分析成果摘要")
-        show_column_summary(res, Pu_c, Mu_c)
+        show_column_summary(res, Pu_c, Mux_c, Muy_c)
         st.markdown("---")
         st.markdown("#### 📥 下載計算書")
         _dc1, _dc2 = st.columns(2)
