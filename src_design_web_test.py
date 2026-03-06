@@ -1847,28 +1847,21 @@ with tab_col:
 # ===== P-M 曲線（雙向彎矩）=====
     st.divider()
     st.header("📈 SRC 柱 P-M 互制曲線（雙向彎矩）")
+    st.caption("自動使用上方柱設計參數")
     c1, c2 = st.columns([1, 2])
     with c1:
-        pm_stl = steel_section_selector('pm', filter_type='all',
-                                        default_name='BOX300×300×9')
-        pm_b = st.number_input("b (cm)", value=60, key='pm_b')
-        pm_h = st.number_input("h (cm)", value=60, key='pm_h')
-        pm_c = st.number_input("cover (cm)", value=5, key='pm_c')
-        c3, c4 = st.columns(2)
-        with c3: pm_n = st.number_input("筋數", min_value=4, value=8, key='pm_n')
-        with c4: pm_s = st.selectbox("規格", list(REBAR_DB.keys()), index=3, key='pm_s')
-        pm_As = pm_n * REBAR_DB[pm_s]
-        pm_Pu = st.number_input("設計 Pu (tf)", value=200.0, key='pm_Pu')
-        # 雙向彎矩輸入
-        pm_mx_my = st.columns(2)
-        with pm_mx_my[0]:
-            pm_Mux = st.number_input("Mux (tf-m)", value=30.0, key='pm_Mux')
-        with pm_mx_my[1]:
-            pm_Muy = st.number_input("Muy (tf-m)", value=0.0, key='pm_Muy')
+        # 顯示柱設計參數（唯讀）
+        st.info(f"📌 柱斷面：{c_stl.name}")
+        st.info(f"📌 b×h = {cw}×{ch} cm")
+        st.info(f"📌 保護層 = {cc} cm")
+        st.info(f"📌 縱筋：{c_num}-{c_siz} (As={As_col:.2f} cm²)")
+        st.info(f"📌 設計軸力 Pu = {Pu_c:.2f} tf")
+        st.info(f"📌 設計彎矩 Mux = {Mux_c:.2f} tf-m, Muy = {Muy_c:.2f} tf-m")
+        
     with c2:
-        # 產生 X軸 和 Y軸 兩條曲線
-        curve_x = gen_pm_curve(mat, pm_stl, pm_b, pm_h, pm_c, pm_As, axis='X')
-        curve_y = gen_pm_curve(mat, pm_stl, pm_b, pm_h, pm_c, pm_As, axis='Y')
+        # 自動使用柱設計參數產生 P-M 曲線
+        curve_x = gen_pm_curve(mat, c_stl, cw, ch, cc, As_col, axis='X')
+        curve_y = gen_pm_curve(mat, c_stl, cw, ch, cc, As_col, axis='Y')
         Pv_x = [p[0] for p in curve_x]
         Mv_x = [p[1] for p in curve_x]
         Pv_y = [p[0] for p in curve_y]
@@ -1879,11 +1872,11 @@ with tab_col:
         ax.plot(Mv_y, Pv_y, 'g-', lw=2.5, label='Y軸 P-M（Muy）')
         
         # 設計點
-        ax.scatter([pm_Mux], [pm_Pu], c='red', s=150, zorder=5, marker='o',
-                   label=f'設計點X ({pm_Pu:.0f} tf, {pm_Mux:.0f} tf-m)')
-        if pm_Muy > 0:
-            ax.scatter([pm_Muy], [pm_Pu], c='orange', s=150, zorder=5, marker='s',
-                       label=f'設計點Y ({pm_Pu:.0f} tf, {pm_Muy:.0f} tf-m)')
+        ax.scatter([Mux_c], [Pu_c], c='red', s=150, zorder=5, marker='o',
+                   label=f'設計點X ({Pu_c:.0f} tf, {Mux_c:.0f} tf-m)')
+        if Muy_c > 0:
+            ax.scatter([Muy_c], [Pu_c], c='orange', s=150, zorder=5, marker='s',
+                       label=f'設計點Y ({Pu_c:.0f} tf, {Muy_c:.0f} tf-m)')
         
         ax.axhline(0, color='gray', ls='--', lw=0.8)
         ax.axvline(0, color='gray', ls='--', lw=0.8)
@@ -1897,7 +1890,7 @@ with tab_col:
             font_cn = None
         ax.set_xlabel('彎矩 M (tf-m)', fontsize=12, fontproperties=font_cn)
         ax.set_ylabel('軸力 P (tf)', fontsize=12, fontproperties=font_cn)
-        ax.set_title(f'SRC 柱 P-M 互制曲線（雙向）\n{pm_stl.name} / {pm_b}×{pm_h}cm / {pm_n}-{pm_s}', 
+        ax.set_title(f'SRC 柱 P-M 互制曲線（雙向）\n{c_stl.name} / {cw}×{ch}cm / {c_num}-{c_siz}', 
                      fontsize=12, fontproperties=font_cn)
         ax.legend(fontsize=10, prop=font_cn)
         ax.grid(alpha=0.3)
