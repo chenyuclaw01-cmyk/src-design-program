@@ -570,21 +570,359 @@ def calc_beam(mat: Material, steel: SteelSection, b, h, cover, As_top, As_bot, M
 
 
 # ============================================================
-# SRC 柱設計 (規範第6、7章)
+# SRC 柱設計 (規範第6、7章) — 含雙向彎矩
 # ============================================================
-def calc_column(mat: Material, steel: SteelSection, b, h, cover, As, Pu, Mu,
+def calc_column(mat: Material, steel: SteelSection, b, h, cover, As, Pu,
+                Mux: float = 0.0, Muy: float = 0.0,
                 Vu: float = 0.0, Av_s: float = 0.0, s_s: float = 15.0,
                 seismic: bool = False):
     """
-    規範 6.4 軸力強度 + 7.3 P-M交互作用 + 7.4 剪力強度疊加
-    採用相對剛度分配法
-    seismic: True = 耐震設計，使用 λpd 限值（表3.4-2/3 柱）
+    規範 6.4 軸力強度 + 7.3 雙向P-M交互作用 + 7.4 剪力強度疊加
+    Mux : X軸（強軸，d方向）設計彎矩 tf-m
+    Muy : Y軸（弱軸，b方向）設計彎矩 tf-m
+    雙向P-M採 AISC 360 H1-1a/H1-1b 公式
+    seismic: True = 耐震設計，寬厚比使用 λpd 限值
     """
     lines = []
     lines.append("=" * 60)
-    lines.append("SRC 柱設計計算書")
+    lines.append("SRC 柱設計計算書（雙向彎矩）")
     lines.append("依據：鋼骨鋼筋混凝土構造設計規範與解說 第6、7章")
     lines.append("=" * 60)
+
+    # ── 斷面幾何（前置計算） ────────────────────────────────
+    bf_cm   = steel.bf / 10
+    d_cm    = steel.d  / 10
+    tf_cm   = steel.tf / 10
+    tw_cm   = steel.tw / 10
+    A_gross = b * h
+    A_steel = steel.A
+    Ac      = A_gross - A_steel
+    d_rc_x  = h - cover   # X軸有效深度（強軸，h方向）
+    d_rc_y  = b - cover   # Y軸有效深度（弱軸，b方向）
+
+    lines.append("\n【一、設計條件】")
+    lines.append(f"  鋼骨斷面    : {steel.name}  ({steel.section_type}型)")
+    lines.append(f"  柱寬  b     : {b} cm（Y向，弱軸方向）")
+    lines.append(f"  柱深  h     : {h} cm（X向，強軸方向）")
+    lines.append(f"  保護層 dc   : {cover} cm")
+    lines.append(f"  有效深度 dx : h−dc = {h}−{cover} = {d_rc_x:.1f} cm（X軸強軸）")
+    lines.append(f"  有效深度 dy : b−dc = {b}−{cover} = {d_rc_y:.1f} cm（Y軸弱軸）")
+    lines.append(f"  Ag（全斷面）= {b}×{h} = {A_gross:.2f} cm²")
+    lines.append(f"  As_stl      = {A_steel:.2f} cm²  (鋼骨斷面積)")
+    lines.append(f"  Ac          = Ag−As_stl = {A_gross:.2f}−{A_steel:.2f} = {Ac:.2f} cm²")
+    lines.append(f"  縱向鋼筋 As : {As:.2f} cm²")
+    lines.append(f"  設計軸力 Pu : {Pu:.2f} tf")
+    lines.append(f"  設計彎矩 Mux: {Mux:.2f} tf-m（X軸強軸，Zx方向）")
+    lines.append(f"  設計彎矩 Muy: {Muy:.2f} tf-m（Y軸弱軸，Zy方向）")
+    if Vu > 0:
+        lines.append(f"  設計剪力 Vu : {Vu:.2f} tf")
+    if Av_s > 0:
+        lines.append(f"  箍筋 Av/s   : {Av_s:.2f} cm² / {s_s:.1f} cm")
+    lines.append(f"\n  鋼骨斷面性質：")
+    lines.append(f"  Ix = {steel.Ix:.1f} cm⁴，Zx = {steel.Zx:.1f} cm³（強軸X）")
+    lines.append(f"  Iy = {steel.Iy:.1f} cm⁴，Zy = {steel.Zy:.1f} cm³（弱軸Y）")
+    lines.append(f"\n  材料強度：")
+    lines.append(f"  Fys（鋼骨）= {mat.fy_steel:.0f} kgf/cm²")
+    lines.append(f"  Fyr（鋼筋）= {mat.fy_rebar:.0f} kgf/cm²")
+    lines.append(f"  fc'（混凝土）= {mat.fc:.0f} kgf/cm²")
+    lines.append(f"  Es = {mat.Es:.0f} kgf/cm²")
+    lines.append(f"  Ec = 15000√fc' = 15000×√{mat.fc:.0f} = {mat.Ec:.0f} kgf/cm²")
+
+    # ── 軸力強度（前置計算）────────────────────────────────
+    Pn_rc  = (0.85 * mat.fc * Ac + mat.fy_rebar * As) / 1000
+    Pn_s   = mat.fy_steel * A_steel / 1000
+    phi_Pn = 0.75 * Pn_rc + 0.9 * Pn_s
+
+    # ── X向相對剛度分配 ─────────────────────────────────────
+    Is_x    = steel.Ix
+    Ic_x    = b * (h ** 3) / 12
+    EsIs_x  = mat.Es * Is_x
+    EcIc_x  = mat.Ec * Ic_x
+    rs_x    = EsIs_x / (EsIs_x + EcIc_x)
+    rrc_x   = 1 - rs_x
+    Pu_s_x  = rs_x  * Pu;  Pu_rc_x = rrc_x * Pu
+    Mux_s   = rs_x  * Mux; Mux_rc  = rrc_x * Mux
+
+    # ── Y向相對剛度分配 ─────────────────────────────────────
+    Is_y    = steel.Iy
+    Ic_y    = h * (b ** 3) / 12   # Y向混凝土柱慣性矩
+    EsIs_y  = mat.Es * Is_y
+    EcIc_y  = mat.Ec * Ic_y
+    rs_y    = EsIs_y / (EsIs_y + EcIc_y)
+    rrc_y   = 1 - rs_y
+    Muy_s   = rs_y  * Muy; Muy_rc  = rrc_y * Muy
+
+    # ── 取較大的分配比用於 P 分配（保守）────────────────────
+    rs   = rs_x   # 以 X 向分配比作代表（通常為主彎矩方向）
+    rrc  = rrc_x
+    Pu_s = Pu_s_x; Pu_rc = Pu_rc_x
+
+    # ══════════════════════════════════════════════════════
+    # 二、鋼骨彎矩強度 (X/Y兩向)
+    # ══════════════════════════════════════════════════════
+    Pns      = mat.fy_steel * A_steel / 1000
+    Mnsx     = mat.fy_steel * steel.Zx / 1e5   # X向
+    Mnsy     = mat.fy_steel * steel.Zy / 1e5   # Y向
+    phi_Mnsx = 0.9 * Mnsx
+    phi_Mnsy = 0.9 * Mnsy
+
+    lines.append("\n【二、鋼骨彎矩強度（X/Y雙向）】(規範 7.3.1 / AISC 360 H1)")
+    lines.append(f"  ─ X軸（強軸，Zx = {steel.Zx:.1f} cm³）─")
+    lines.append(f"  Mnsx = Fys×Zx/10⁵ = {mat.fy_steel:.0f}×{steel.Zx:.1f}/10⁵ = {Mnsx:.3f} tf-m")
+    lines.append(f"  φMnsx = 0.9×{Mnsx:.3f} = {phi_Mnsx:.3f} tf-m")
+    lines.append(f"  ─ Y軸（弱軸，Zy = {steel.Zy:.1f} cm³）─")
+    lines.append(f"  Mnsy = Fys×Zy/10⁵ = {mat.fy_steel:.0f}×{steel.Zy:.1f}/10⁵ = {Mnsy:.3f} tf-m")
+    lines.append(f"  φMnsy = 0.9×{Mnsy:.3f} = {phi_Mnsy:.3f} tf-m")
+
+    lines.append(f"\n  ─ X向相對剛度分配（規範7.3）─")
+    lines.append(f"  Isx={Is_x:.1f} cm⁴，Icx=b×h³/12={Ic_x:.1f} cm⁴")
+    lines.append(f"  rs_x = {EsIs_x:.3e}/({EsIs_x:.3e}+{EcIc_x:.3e}) = {rs_x:.4f}")
+    lines.append(f"  Mux_s = {rs_x:.4f}×{Mux:.2f} = {Mux_s:.3f} tf-m（鋼骨承擔X彎矩）")
+    lines.append(f"  ─ Y向相對剛度分配（規範7.3）─")
+    lines.append(f"  Isy={Is_y:.1f} cm⁴，Icy=h×b³/12={Ic_y:.1f} cm⁴")
+    lines.append(f"  rs_y = {EsIs_y:.3e}/({EsIs_y:.3e}+{EcIc_y:.3e}) = {rs_y:.4f}")
+    lines.append(f"  Muy_s = {rs_y:.4f}×{Muy:.2f} = {Muy_s:.3f} tf-m（鋼骨承擔Y彎矩）")
+
+    # AISC 360 H1-1 雙向P-M互制（鋼骨部分）
+    lines.append(f"\n  ─ 鋼骨 雙向P-M互制（AISC 360 H1-1 雙向）─")
+    lines.append(f"  φPns = 0.9×{Pns:.2f} = {0.9*Pns:.2f} tf")
+    pm_ratio_s = Pu_s / (0.9 * Pns) if Pns > 0 else 0
+    if pm_ratio_s >= 0.2:
+        # H1-1a：Pu/(φPn) + (8/9)[Mux/(φMnx) + Muy/(φMny)] ≤ 1.0
+        chk_s = (Pu_s / (0.9 * Pns)
+                 + (8/9) * (Mux_s / phi_Mnsx if phi_Mnsx > 0 else 0)
+                 + (8/9) * (Muy_s / phi_Mnsy if phi_Mnsy > 0 else 0))
+        lines.append(f"  Pu_s/(φPns) = {pm_ratio_s:.3f} ≥ 0.2 → 採 H1-1a")
+        lines.append(f"  = Pu_s/(φPns)+(8/9)[Mux_s/(φMnsx)+Muy_s/(φMnsy)]")
+        lines.append(f"  = {Pu_s:.3f}/{0.9*Pns:.3f}+(8/9)[{Mux_s:.3f}/{phi_Mnsx:.3f}+{Muy_s:.3f}/{phi_Mnsy:.3f}]")
+        lines.append(f"  = {chk_s:.4f}")
+    else:
+        # H1-1b：Pu/(2φPn) + Mux/(φMnx) + Muy/(φMny) ≤ 1.0
+        chk_s = (Pu_s / (2 * 0.9 * Pns)
+                 + (Mux_s / phi_Mnsx if phi_Mnsx > 0 else 0)
+                 + (Muy_s / phi_Mnsy if phi_Mnsy > 0 else 0))
+        lines.append(f"  Pu_s/(φPns) = {pm_ratio_s:.3f} < 0.2 → 採 H1-1b")
+        lines.append(f"  = Pu_s/(2φPns)+Mux_s/(φMnsx)+Muy_s/(φMnsy)")
+        lines.append(f"  = {Pu_s:.3f}/{2*0.9*Pns:.3f}+{Mux_s:.3f}/{phi_Mnsx:.3f}+{Muy_s:.3f}/{phi_Mnsy:.3f}")
+        lines.append(f"  = {chk_s:.4f}")
+    ok_s = "✓ OK" if chk_s <= 1.0 else "✗ NG"
+    lines.append(f"  鋼骨雙向P-M比值 = {chk_s:.4f} → {ok_s}")
+
+    # ══════════════════════════════════════════════════════
+    # 三、RC部分彎矩強度（X/Y兩向）
+    # ══════════════════════════════════════════════════════
+    # X向（強軸，h方向受彎）
+    a_x    = As * mat.fy_rebar / (0.85 * mat.fc * b)
+    Mn_rcx = As * mat.fy_rebar * (d_rc_x - a_x / 2) / 1e5
+    phi_Mn_rcx = 0.9 * Mn_rcx
+    # Y向（弱軸，b方向受彎）
+    a_y    = As * mat.fy_rebar / (0.85 * mat.fc * h)
+    Mn_rcy = As * mat.fy_rebar * (d_rc_y - a_y / 2) / 1e5
+    phi_Mn_rcy = 0.9 * Mn_rcy
+
+    lines.append("\n【三、RC部分彎矩強度（X/Y雙向）】(規範 7.3.2 / ACI 318)")
+    lines.append(f"  ─ X軸（強軸，有效深度 dx = {d_rc_x:.1f} cm）─")
+    lines.append(f"  a_x = As·Fyr/(0.85·fc'·b) = {As:.2f}×{mat.fy_rebar:.0f}/(0.85×{mat.fc:.0f}×{b}) = {a_x:.3f} cm")
+    lines.append(f"  Mnrcx = As·Fyr·(dx-a/2)/10⁵ = {Mn_rcx:.3f} tf-m")
+    lines.append(f"  φMnrcx = 0.9×{Mn_rcx:.3f} = {phi_Mn_rcx:.3f} tf-m")
+    lines.append(f"  ─ Y軸（弱軸，有效深度 dy = {d_rc_y:.1f} cm）─")
+    lines.append(f"  a_y = As·Fyr/(0.85·fc'·h) = {As:.2f}×{mat.fy_rebar:.0f}/(0.85×{mat.fc:.0f}×{h}) = {a_y:.3f} cm")
+    lines.append(f"  Mnrcy = As·Fyr·(dy-a/2)/10⁵ = {Mn_rcy:.3f} tf-m")
+    lines.append(f"  φMnrcy = 0.9×{Mn_rcy:.3f} = {phi_Mn_rcy:.3f} tf-m")
+
+    # RC P-M 互制（雙向線性近似）
+    lines.append(f"\n  ─ RC雙向P-M互制（線性近似）─")
+    lines.append(f"  φPn_rc = 0.65×{Pn_rc:.2f} = {0.65*Pn_rc:.2f} tf")
+    pm_ratio_rc = Pu_rc / (0.65 * Pn_rc) if Pn_rc > 0 else 0
+    if pm_ratio_rc >= 0.1:
+        chk_r = (Pu_rc / (0.65 * Pn_rc)
+                 + (Mux_rc / phi_Mn_rcx if phi_Mn_rcx > 0 else 0)
+                 + (Muy_rc / phi_Mn_rcy if phi_Mn_rcy > 0 else 0))
+        lines.append(f"  Pu_rc/(φPn_rc) = {pm_ratio_rc:.3f} ≥ 0.1")
+        lines.append(f"  = Pu_rc/(φPn_rc)+Mux_rc/(φMnrcx)+Muy_rc/(φMnrcy)")
+        lines.append(f"  = {Pu_rc:.3f}/{0.65*Pn_rc:.3f}+{Mux_rc:.3f}/{phi_Mn_rcx:.3f}+{Muy_rc:.3f}/{phi_Mn_rcy:.3f}")
+        lines.append(f"  = {chk_r:.4f}")
+    else:
+        chk_r = (Pu_rc / (1.3 * Pn_rc)
+                 + (Mux_rc / phi_Mn_rcx if phi_Mn_rcx > 0 else 0)
+                 + (Muy_rc / phi_Mn_rcy if phi_Mn_rcy > 0 else 0))
+        lines.append(f"  Pu_rc/(φPn_rc) = {pm_ratio_rc:.3f} < 0.1")
+        lines.append(f"  = Pu_rc/(1.3Pn_rc)+Mux_rc/(φMnrcx)+Muy_rc/(φMnrcy)")
+        lines.append(f"  = {Pu_rc:.3f}/{1.3*Pn_rc:.3f}+{Mux_rc:.3f}/{phi_Mn_rcx:.3f}+{Muy_rc:.3f}/{phi_Mn_rcy:.3f}")
+        lines.append(f"  = {chk_r:.4f}")
+    ok_r = "✓ OK" if chk_r <= 1.0 else "✗ NG"
+    lines.append(f"  RC雙向P-M比值 = {chk_r:.4f} → {ok_r}")
+
+    # ══════════════════════════════════════════════════════
+    # 四、疊加彎矩強度（X/Y分別檢核）
+    # ══════════════════════════════════════════════════════
+    phi_Mnx_total = phi_Mnsx + phi_Mn_rcx   # X軸總強度
+    phi_Mny_total = phi_Mnsy + phi_Mn_rcy   # Y軸總強度
+
+    dc_Mx = Mux / phi_Mnx_total if phi_Mnx_total > 0 else 0
+    dc_My = Muy / phi_Mny_total if phi_Mny_total > 0 else 0
+    ok_mux = phi_Mnx_total >= Mux
+    ok_muy = phi_Mny_total >= Muy
+    ok_mu  = ok_mux and ok_muy
+
+    lines.append("\n【四、疊加彎矩強度（X/Y雙向）】(規範 7.3 強度疊加法)")
+    lines.append(f"  ─ X軸（強軸）─")
+    lines.append(f"  φMnx = φMnsx + φMnrcx = {phi_Mnsx:.3f} + {phi_Mn_rcx:.3f} = {phi_Mnx_total:.3f} tf-m")
+    lines.append(f"  Mux = {Mux:.2f} tf-m，D/C = {dc_Mx:.3f} → {'✓ OK' if ok_mux else '✗ NG'}")
+    lines.append(f"  ─ Y軸（弱軸）─")
+    lines.append(f"  φMny = φMnsy + φMnrcy = {phi_Mnsy:.3f} + {phi_Mn_rcy:.3f} = {phi_Mny_total:.3f} tf-m")
+    lines.append(f"  Muy = {Muy:.2f} tf-m，D/C = {dc_My:.3f} → {'✓ OK' if ok_muy else '✗ NG'}")
+
+    # ══════════════════════════════════════════════════════
+    # 五、縱向鋼筋比檢核
+    # ══════════════════════════════════════════════════════
+    rho     = As / (b * d_rc_x)
+    rho_min = 0.01
+    rho_max = 0.08
+    ok_rho     = rho >= rho_min
+    ok_rho_max = rho <= rho_max
+    tag_rho    = "✓ OK" if ok_rho else "✗ NG"
+
+    lines.append("\n【五、縱向鋼筋比檢核】(規範 6.2.1 / ACI 318 §10.6.1.1)")
+    lines.append(f"  ρ = As/(b×d)  = {As:.2f}/({b}×{d_rc_x:.1f}) = {rho:.5f}")
+    lines.append(f"  ρmin = 0.010（規範6.2.1：SRC柱縱筋比不得小於1%）")
+    lines.append(f"  ρmax = 0.080（規範6.2.2：SRC柱縱筋比上限8%）")
+    lines.append(f"  ρ = {rho:.5f} {'≥' if ok_rho else '<'} ρmin = {rho_min:.3f} → {tag_rho}")
+    lines.append(f"  ρ = {rho:.5f} {'≤' if ok_rho_max else '>'} ρmax = {rho_max:.3f} → {'✓ OK' if ok_rho_max else '✗ NG（超過上限）'}")
+
+    # ══════════════════════════════════════════════════════
+    # 六、軸力強度檢核
+    # ══════════════════════════════════════════════════════
+    ok_pu  = Pu <= phi_Pn
+    dc_P   = Pu / phi_Pn if phi_Pn > 0 else 0
+    tag_pu = "✓ OK" if ok_pu else "✗ NG"
+
+    lines.append("\n【六、軸力強度檢核】(規範 6.4)")
+    lines.append(f"  φPn = 0.75×Pn_rc + 0.9×Pn_s")
+    lines.append(f"    Pn_rc = (0.85×{mat.fc:.0f}×{Ac:.1f}+{mat.fy_rebar:.0f}×{As:.2f})/1000 = {Pn_rc:.2f} tf")
+    lines.append(f"    Pn_s  = {mat.fy_steel:.0f}×{A_steel:.2f}/1000 = {Pn_s:.2f} tf")
+    lines.append(f"    φPn = 0.75×{Pn_rc:.2f}+0.9×{Pn_s:.2f} = {phi_Pn:.2f} tf")
+    lines.append(f"    Pu = {Pu:.2f} tf {'≤' if ok_pu else '>'} φPn = {phi_Pn:.2f} tf，D/C = {dc_P:.3f} → {tag_pu}")
+
+    # ══════════════════════════════════════════════════════
+    # 七、剪力強度檢核（彎矩分配法，規範 7.4）
+    # ══════════════════════════════════════════════════════
+    lines.append("\n【七、剪力強度檢核】(規範 7.4 彎矩分配法)")
+    lines.append("  方法：依Mux向彎矩比（rs_x）分配 Vu 給鋼骨與RC")
+
+    s_d_cm  = steel.d  / 10
+    s_tw_cm = steel.tw / 10
+    s_tf_cm = steel.tf / 10
+    if steel.section_type == 'BOX':
+        Aw_col = 2 * s_tw_cm * (s_d_cm - 2 * s_tf_cm)
+    else:
+        Aw_col = s_tw_cm * (s_d_cm - 2 * s_tf_cm)
+    Vns_col     = 0.6 * mat.fy_steel * Aw_col / 1000
+    phi_Vns_col = 0.9 * Vns_col
+
+    A_gross_col  = b * h
+    Nu_kgf       = Pu * 1000
+    axial_factor = max(1.0 + Nu_kgf / (140.0 * A_gross_col), 0.0)
+    Vc_col       = 0.53 * math.sqrt(mat.fc) * axial_factor * b * d_rc_x / 1000
+    phi_Vc_col   = 0.75 * Vc_col
+    Vs_col       = (Av_s * mat.fy_rebar * d_rc_x / s_s / 1000) if (Av_s > 0 and s_s > 0) else 0.0
+    phi_Vs_col   = 0.75 * Vs_col
+    phi_Vnrc_col = phi_Vc_col + phi_Vs_col
+    phi_Vn_col   = phi_Vns_col + phi_Vnrc_col
+
+    # 彎矩分配比（以X向名目彎矩為準）
+    Mn_total = Mnsx + Mn_rcx
+    r_vns    = Mnsx  / Mn_total if Mn_total > 0 else 0.5
+    r_vnrc   = Mn_rcx / Mn_total if Mn_total > 0 else 0.5
+
+    lines.append(f"\n  ─ 鋼骨腹板剪力強度 φVns ─")
+    if steel.section_type == 'BOX':
+        lines.append(f"  BOX：Aw = 2×{s_tw_cm:.1f}×({s_d_cm:.1f}-2×{s_tf_cm:.2f}) = {Aw_col:.2f} cm²")
+    else:
+        lines.append(f"  H型：Aw = {s_tw_cm:.1f}×({s_d_cm:.1f}-2×{s_tf_cm:.2f}) = {Aw_col:.2f} cm²")
+    lines.append(f"  Vns = 0.6×{mat.fy_steel:.0f}×{Aw_col:.2f}/1000 = {Vns_col:.3f} tf，φVns = {phi_Vns_col:.3f} tf")
+    lines.append(f"\n  ─ RC 剪力強度 φVnrc（規範7.4.2 / ACI §22.5.6.1）─")
+    lines.append(f"  軸力修正 = 1+{Nu_kgf:.0f}/(140×{A_gross_col}) = {axial_factor:.4f}")
+    lines.append(f"  Vc = 0.53×√{mat.fc:.0f}×{axial_factor:.4f}×{b}×{d_rc_x:.1f}/1000 = {Vc_col:.3f} tf，φVc = {phi_Vc_col:.3f} tf")
+    if Av_s > 0:
+        lines.append(f"  Vs = {Av_s:.2f}×{mat.fy_rebar:.0f}×{d_rc_x:.1f}/({s_s:.1f}×1000) = {Vs_col:.3f} tf，φVs = {phi_Vs_col:.3f} tf")
+    lines.append(f"  φVnrc = {phi_Vnrc_col:.3f} tf，φVn = {phi_Vn_col:.3f} tf")
+
+    ok_vu = True; ok_vu_s = True; ok_vu_rc = True
+    dc_vu = 0.0;  dc_vu_s = 0.0;  dc_vu_rc = 0.0
+    lines.append(f"\n  ─ 彎矩分配比（以X向名目彎矩）：r_s={r_vns:.4f}，r_rc={r_vnrc:.4f} ─")
+    if Vu > 0:
+        Vu_s  = r_vns  * Vu
+        Vu_rc = r_vnrc * Vu
+        dc_vu_s  = Vu_s  / phi_Vns_col  if phi_Vns_col  > 0 else 999
+        ok_vu_s  = dc_vu_s  <= 1.0
+        dc_vu_rc = Vu_rc / phi_Vnrc_col if phi_Vnrc_col > 0 else 999
+        ok_vu_rc = dc_vu_rc <= 1.0
+        dc_vu    = Vu / phi_Vn_col if phi_Vn_col > 0 else 999
+        ok_vu    = ok_vu_s and ok_vu_rc and (dc_vu <= 1.0)
+        lines.append(f"  ① 鋼骨：Vu_s={Vu_s:.3f} tf，φVns={phi_Vns_col:.3f} tf，D/C={dc_vu_s:.3f} → {'✓ OK' if ok_vu_s else '✗ NG'}")
+        lines.append(f"  ② RC  ：Vu_rc={Vu_rc:.3f} tf，φVnrc={phi_Vnrc_col:.3f} tf，D/C={dc_vu_rc:.3f} → {'✓ OK' if ok_vu_rc else '✗ NG'}")
+        lines.append(f"  ③ 總計：Vu={Vu:.2f} tf，φVn={phi_Vn_col:.3f} tf，D/C={dc_vu:.3f} → {'✓ OK' if ok_vu else '✗ NG'}")
+    else:
+        lines.append(f"  φVns={phi_Vns_col:.3f} tf，φVnrc={phi_Vnrc_col:.3f} tf，φVn={phi_Vn_col:.3f} tf（未輸入Vu）")
+
+    # ══════════════════════════════════════════════════════
+    # 八、結論
+    # ══════════════════════════════════════════════════════
+    is_safe = (chk_s <= 1.0 and chk_r <= 1.0 and ok_pu
+               and ok_mu and ok_rho and ok_rho_max and ok_vu)
+
+    lines.append("\n【八、結論】")
+    lines.append("=" * 60)
+    lines.append("  各項檢核彙整：")
+    lines.append(f"  ① 軸力強度      ：Pu={Pu:.2f} tf，φPn={phi_Pn:.2f} tf，D/C={dc_P:.3f} → {tag_pu}")
+    lines.append(f"  ② 鋼骨雙向P-M   ：{chk_s:.4f} → {ok_s}")
+    lines.append(f"  ③ RC雙向P-M     ：{chk_r:.4f} → {ok_r}")
+    lines.append(f"  ④ X向疊加彎矩   ：Mux={Mux:.2f} tf-m，φMnx={phi_Mnx_total:.3f} tf-m，D/C={dc_Mx:.3f} → {'✓ OK' if ok_mux else '✗ NG'}")
+    lines.append(f"  ⑤ Y向疊加彎矩   ：Muy={Muy:.2f} tf-m，φMny={phi_Mny_total:.3f} tf-m，D/C={dc_My:.3f} → {'✓ OK' if ok_muy else '✗ NG'}")
+    lines.append(f"  ⑥ 縱向鋼筋比    ：ρ={rho:.5f}，ρmin={rho_min:.3f} → {tag_rho}")
+    if Vu > 0:
+        lines.append(f"  ⑦ 剪力強度      ：Vu={Vu:.2f} tf，φVn={phi_Vn_col:.3f} tf，D/C={dc_vu:.3f} → {'✓ OK' if ok_vu else '✗ NG'}")
+    else:
+        lines.append(f"  ⑦ 剪力強度      ：φVn={phi_Vn_col:.3f} tf（未輸入Vu）")
+    lines.append("-" * 60)
+    lines.append(f"  ★ {'設計安全 ✓  所有檢核均通過' if is_safe else '設計不足 ✗  請檢視不通過項目並加大斷面或配筋'}")
+    lines.append("=" * 60)
+
+    # 寬厚比（表3.4-2/3）
+    wt_report, wt_ok = check_width_thickness(mat, steel, member='column', seismic=seismic)
+    lines.append("")
+    lines.append(wt_report)
+
+    result = {
+        'phi_Pn': phi_Pn, 'Pn_rc': Pn_rc, 'Pn_s': Pn_s,
+        'Ac': Ac,
+        'rs_x': rs_x, 'rrc_x': rrc_x, 'rs_y': rs_y, 'rrc_y': rrc_y,
+        'Pu_s': Pu_s, 'Pu_rc': Pu_rc,
+        'Mux_s': Mux_s, 'Mux_rc': Mux_rc,
+        'Muy_s': Muy_s, 'Muy_rc': Muy_rc,
+        'Pns': Pns,
+        'Mnsx': Mnsx, 'Mnsy': Mnsy, 'Mn_rcx': Mn_rcx, 'Mn_rcy': Mn_rcy,
+        'phi_Mnsx': phi_Mnsx, 'phi_Mnsy': phi_Mnsy,
+        'phi_Mn_rcx': phi_Mn_rcx, 'phi_Mn_rcy': phi_Mn_rcy,
+        'phi_Mnx': phi_Mnx_total, 'phi_Mny': phi_Mny_total,
+        'chk_s': chk_s, 'chk_r': chk_r, 'is_safe': is_safe,
+        'Ic_x': Ic_x, 'Is_x': Is_x, 'Ic_y': Ic_y, 'Is_y': Is_y,
+        'wt_ok': wt_ok, 'rho': rho, 'rho_min': rho_min,
+        'ok_rho': ok_rho, 'dc_P': dc_P, 'ok_pu': ok_pu,
+        'dc_Mx': dc_Mx, 'ok_mux': ok_mux,
+        'dc_My': dc_My, 'ok_muy': ok_muy, 'ok_mu': ok_mu,
+        'Mux': Mux, 'Muy': Muy,
+        'phi_Vn': phi_Vn_col, 'phi_Vnrc': phi_Vnrc_col, 'phi_Vns': phi_Vns_col,
+        'Vu': Vu, 'dc_vu': dc_vu, 'ok_vu': ok_vu,
+        'dc_vu_s': dc_vu_s, 'ok_vu_s': ok_vu_s,
+        'dc_vu_rc': dc_vu_rc, 'ok_vu_rc': ok_vu_rc
+    }
+    return '\n'.join(lines), result
+
+
+
+
 
     # ── 斷面幾何（前置計算） ────────────────────────────────
     bf_cm   = steel.bf / 10
