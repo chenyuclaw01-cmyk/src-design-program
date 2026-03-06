@@ -3,6 +3,15 @@
 SRC 鋼骨鋼筋混凝土結構設計程式
 依據：鋼骨鋼筋混凝土構造設計規範與解說 (Taiwan SRC Code)
 """
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
+
+# 設置全局中文字體
+plt.rcParams['font.family'] = ['.Apple Symbols', '.CJK Symbols Fallback HK', 'Noto Sans', 'DejaVu Sans', 'sans-serif']
+plt.rcParams['axes.unicode_minus'] = False  # 解決負號顯示問題
+
 import streamlit as st
 import math
 import matplotlib
