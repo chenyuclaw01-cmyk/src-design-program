@@ -813,12 +813,12 @@ def calc_column(mat: Material, steel: SteelSection, b, h, cover, As, Pu, Mu,
     phi_Vnrc_col = phi_Vc_col + phi_Vs_col
     
     # --- 7.2 彎矩分配比例計算 ---
-    Mn_total = Mns + Mnrc  # 總標稱彎矩強度
+    Mn_total = Mns + Mn_rc  # 總標稱彎矩強度
     
     if Vu > 0 and Mn_total > 0:
         # 依彎矩比例分配剪力
         Vu_s_col = (Mns / Mn_total) * Vu   # 鋼骨分擔剪力
-        Vu_rc_col = (Mnrc / Mn_total) * Vu # RC分擔剪力
+        Vu_rc_col = (Mn_rc / Mn_total) * Vu # RC分擔剪力
     else:
         Vu_s_col = 0
         Vu_rc_col = 0
