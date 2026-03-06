@@ -1,3 +1,4 @@
+import os
 #!/usr/bin/env python3
 """
 SRC 鋼骨鋼筋混凝土結構設計程式
@@ -8,8 +9,13 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 
-# 設置全局中文字體
-plt.rcParams['font.family'] = ['.Apple Symbols', '.CJK Symbols Fallback HK', 'Noto Sans', 'DejaVu Sans', 'sans-serif']
+# 載入自帶的中文字體
+font_path = os.path.join(os.path.dirname(__file__), 'NotoSansTC-Regular.otf')
+if os.path.exists(font_path):
+    fm.fontManager.addfont(font_path)
+    plt.rcParams['font.family'] = ['Noto Sans TC', 'DejaVu Sans', 'sans-serif']
+else:
+    plt.rcParams['font.family'] = ['DejaVu Sans', 'sans-serif']
 plt.rcParams['axes.unicode_minus'] = False  # 解決負號顯示問題
 
 import streamlit as st
