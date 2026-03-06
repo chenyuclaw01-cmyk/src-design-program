@@ -6,7 +6,6 @@ SRC 鋼骨鋼筋混凝土結構設計程式
 import streamlit as st
 import math
 import matplotlib
-matplotlib.use('Agg')  # 非互動式後端
 matplotlib.use('Agg')   # 非互動式後端，適用於 Streamlit / 無 GUI 環境
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
@@ -102,41 +101,18 @@ class SteelSection:
 # 格式：name, type, bf(mm), tf(mm), tw(mm), d(mm), Ix(cm⁴), Zx(cm³), A(cm²)
 STEEL_DB = {
     # ── HN 中翼型（梁常用）────────────────────────────────────
-    'RH300×150×6.5×9':  SteelSection('RH300×150×6.5×9',  'H', 150,  9,  6.5, 300,  7210,  509,  46.78),
-    'RH350×175×7×11':   SteelSection('RH350×175×7×11',   'H', 175, 11,  7.0, 350, 13600,  819,  62.91),
-    'RH400×200×8×13':   SteelSection('RH400×200×8×13',   'H', 200, 13,  8.0, 400, 23700, 1250,  84.12),
-    'RH450×200×9×14':   SteelSection('RH450×200×9×14',   'H', 200, 14,  9.0, 450, 33500, 1570,  96.76),
-    'RH500×200×10×16':  SteelSection('RH500×200×10×16',  'H', 200, 16, 10.0, 500, 47800, 2020, 114.2 ),
-    'RH600×200×11×17':  SteelSection('RH600×200×11×17',  'H', 200, 17, 11.0, 600, 92800, 3270, 134.4 ),
+    'HN300×150×6.5×9':  SteelSection('HN300×150×6.5×9',  'H', 150,  9,  6.5, 300,  7210,  509,  46.78),
+    'HN350×175×7×11':   SteelSection('HN350×175×7×11',   'H', 175, 11,  7.0, 350, 13600,  819,  62.91),
+    'HN400×200×8×13':   SteelSection('HN400×200×8×13',   'H', 200, 13,  8.0, 400, 23700, 1250,  84.12),
+    'HN450×200×9×14':   SteelSection('HN450×200×9×14',   'H', 200, 14,  9.0, 450, 33500, 1570,  96.76),
+    'HN500×200×10×16':  SteelSection('HN500×200×10×16',  'H', 200, 16, 10.0, 500, 47800, 2020, 114.2 ),
+    'HN600×200×11×17':  SteelSection('HN600×200×11×17',  'H', 200, 17, 11.0, 600, 92800, 3270, 134.4 ),
     # ── HW 寬翼型（梁柱皆可）──────────────────────────────────
-    # ── 常用H型鋼（依CNS/JIS標準）──────────────────────────
-    'RH100×100×6×8':    SteelSection('RH100×100×6×8',   'H', 100,  8,  6.0, 100,   383,   89,  21.04),
-    'RH125×125×6.5×9':  SteelSection('RH125×125×6.5×9','H', 125,  9,  6.5, 125,   845,  156,  30.31),
-    'RH150×75×5×7':     SteelSection('RH150×75×5×7',    'H',  75,  7,  5.0, 150,   679,  100,  17.85),
-    'RH150×150×7×10':   SteelSection('RH150×150×7×10',  'H', 150, 10,  7.0, 150,  1640,  252,  40.14),
-    'RH200×100×5.5×8':  SteelSection('RH200×100×5.5×8','H', 100,  8,  5.5, 200,  1810,  199,  27.16),
-    'RH200×200×8×12':   SteelSection('RH200×200×8×12',  'H', 200, 12,  8.0, 200,  4760,  541,  63.53),
-    'RH244×175×7×11':   SteelSection('RH244×175×7×11',  'H', 175, 11,  7.0, 244,  6110,  553,  55.49),
-    'RH250×125×6×9':    SteelSection('RH250×125×6×9',   'H', 125,  9,  6.0, 250,  3380,  300,  37.66),
-    'RH250×250×9×14':   SteelSection('RH250×250×9×14',  'H', 250, 14,  9.0, 250, 10800,  960,  91.43),
-    'RH294×200×8×12':   SteelSection('RH294×200×8×12',  'H', 200, 12,  8.0, 294,  9060,  677,  72.38),
-    'RH300×150×6.5×9':  SteelSection('RH300×150×6.5×9', 'H', 150,  9,  6.5, 300,  7210,  509,  46.78),
-    'RH300×300×10×15':  SteelSection('RH300×300×10×15', 'H', 300, 15, 10.0, 300, 20500, 1500, 119.8 ),
-    'RH340×250×9×14':   SteelSection('RH340×250×9×14',  'H', 250, 14,  9.0, 340, 17900, 1150, 105.0 ),
-    'RH350×175×7×11':   SteelSection('RH350×175×7×11',  'H', 175, 11,  7.0, 350, 13600,  819,  62.91),
-    'RH350×350×12×19':  SteelSection('RH350×350×12×19', 'H', 350, 19, 12.0, 350, 40300, 2520, 173.9 ),
-    'RH390×300×10×16':  SteelSection('RH390×300×10×16', 'H', 300, 16, 10.0, 390, 33700, 1870, 136.0 ),
-    'RH400×200×8×13':   SteelSection('RH400×200×8×13',  'H', 200, 13,  8.0, 400, 23700, 1250,  84.12),
-    'RH400×400×13×21':  SteelSection('RH400×400×13×21', 'H', 400, 21, 13.0, 400, 66600, 3650, 218.7 ),
-    'RH440×300×11×18':  SteelSection('RH440×300×11×18', 'H', 300, 18, 11.0, 440, 48100, 2370, 172.0 ),
-    'RH450×200×9×14':   SteelSection('RH450×200×9×14',  'H', 200, 14,  9.0, 450, 33500, 1570,  96.76),
-    'RH488×300×11×18':  SteelSection('RH488×300×11×18', 'H', 300, 18, 11.0, 488, 61700, 2740, 192.0 ),
-    'RH500×200×10×16':  SteelSection('RH500×200×10×16', 'H', 200, 16, 10.0, 500, 47800, 2020, 114.2 ),
-    'RH588×300×12×20':  SteelSection('RH588×300×12×20', 'H', 300, 20, 12.0, 588, 99900, 3690, 240.0 ),
-    'RH600×200×11×17':  SteelSection('RH600×200×11×17', 'H', 200, 17, 11.0, 600, 92800, 3270, 134.4 ),
-    'RH700×300×13×24':  SteelSection('RH700×300×13×24', 'H', 300, 24, 13.0, 700,162000, 5020, 260.0 ),
-    'RH800×300×14×26':  SteelSection('RH800×300×14×26', 'H', 300, 26, 14.0, 800,237000, 6410, 306.0 ),
-    'RH900×300×16×28':  SteelSection('RH900×300×16×28', 'H', 300, 28, 16.0, 900,338000, 8120, 360.0 ),
+    'HW200×200×8×12':   SteelSection('HW200×200×8×12',   'H', 200, 12,  8.0, 200,  4730,  523,  63.53),
+    'HW250×250×9×14':   SteelSection('HW250×250×9×14',   'H', 250, 14,  9.0, 250, 10800,  960,  91.43),
+    'HW300×300×10×15':  SteelSection('HW300×300×10×15',  'H', 300, 15, 10.0, 300, 20500, 1500, 119.8 ),
+    'HW350×350×12×19':  SteelSection('HW350×350×12×19',  'H', 350, 19, 12.0, 350, 40300, 2520, 173.9 ),
+    'HW400×400×13×21':  SteelSection('HW400×400×13×21',  'H', 400, 21, 13.0, 400, 66600, 3650, 218.7 ),
     # ── BOX 箱型鋼（柱常用）───────────────────────────────────
     'BOX200×200×9':     SteelSection('BOX200×200×9',   'BOX', 200,  9,  9, 200,  4190,  493,  68.76),
     'BOX250×250×9':     SteelSection('BOX250×250×9',   'BOX', 250,  9,  9, 250,  8410,  789,  86.76),
@@ -168,10 +144,8 @@ def steel_section_selector(key: str, filter_type: str = 'all',
     filter_type: 'H' | 'BOX' | 'all'
     傳回所選 / 自訂的 SteelSection 物件。
     """
-    # 依據斷面類型篩選
     if filter_type == 'H':
-        # H型鋼：鍵值開頭為 RH 或 H（熱軋H型鋼）
-        db_keys = [k for k in STEEL_DB if k.startswith('RH') or (k.startswith('H') and not k.startswith('HW'))]
+        db_keys = [k for k in STEEL_DB if k.startswith('H')]
     elif filter_type == 'BOX':
         db_keys = [k for k in STEEL_DB if k.startswith('BOX')]
     else:
@@ -206,28 +180,27 @@ def steel_section_selector(key: str, filter_type: str = 'all',
                                value=13,  step=1,  key=f"{key}_tf")
         c_tw = st.number_input("腹板厚度 tw (mm)", min_value=3,   max_value=80,
                                value=8,   step=1,  key=f"{key}_tw")
-    # 自動計算斷面積、慣性矩、塑性模數
-    d_cm  = c_d  / 10.0
-    bf_cm = c_bf / 10.0
-    tf_cm = c_tf / 10.0
-    tw_cm = c_tw / 10.0
-    
-    if sec_type == 'H':
-        # H型鋼斷面計算
-        # 斷面積 A = 2×bf×tf + (d-2×tf)×tw
-        c_A = round(2 * bf_cm * tf_cm + (d_cm - 2 * tf_cm) * tw_cm, 2)
-        # 慣性矩 Ix = bf×d³/12 - (bf-tw)×(d-2tf)³/12
-        c_Ix = round(bf_cm * d_cm**3 / 12 - (bf_cm - tw_cm) * (d_cm - 2 * tf_cm)**3 / 12, 1)
-        # 塑性模數 Zx（近似值）= Ix / (d/2)
-        c_Zx = round(c_Ix / (d_cm / 2), 1)
-    else:
-        # BOX箱型鋼斷面計算
-        # 斷面積 A = bf×d - (bf-2×tw)×(d-2×tf)
-        c_A = round(bf_cm * d_cm - (bf_cm - 2 * tw_cm) * (d_cm - 2 * tf_cm), 2)
-        # 慣性矩 Ix = [bf×d³ - (bf-2tw)×(d-2tf)³] / 12
-        c_Ix = round((bf_cm * d_cm**3 - (bf_cm - 2 * tw_cm) * (d_cm - 2 * tf_cm)**3) / 12, 1)
-        # 塑性模數 Zx（近似值）= Ix / (d/2)
-        c_Zx = round(c_Ix / (d_cm / 2), 1)
+    with cb:
+        # 自動估算預設值（供使用者參考後修改）
+        d_cm  = c_d  / 10.0
+        bf_cm = c_bf / 10.0
+        tf_cm = c_tf / 10.0
+        tw_cm = c_tw / 10.0
+        if sec_type == 'H':
+            _A_est  = round(2*bf_cm*tf_cm + (d_cm - 2*tf_cm)*tw_cm, 2)
+            _Ix_est = round(bf_cm*d_cm**3/12 - (bf_cm-tw_cm)*(d_cm-2*tf_cm)**3/12, 1)
+            _Zx_est = round(_Ix_est / (d_cm/2), 1)
+        else:
+            _A_est  = round(bf_cm*d_cm - (bf_cm-2*tw_cm)*(d_cm-2*tf_cm), 2)
+            _Ix_est = round((bf_cm*d_cm**3 - (bf_cm-2*tw_cm)*(d_cm-2*tf_cm)**3)/12, 1)
+            _Zx_est = round(_Ix_est / (d_cm/2), 1)
+
+        c_A  = st.number_input("斷面積 A (cm²)",    min_value=1.0,  max_value=5000.0,
+                               value=float(_A_est),  step=0.1, format="%.2f", key=f"{key}_A")
+        c_Ix = st.number_input("慣性矩 Ix (cm⁴)",   min_value=1.0,  max_value=9999999.0,
+                               value=float(_Ix_est), step=1.0, format="%.1f", key=f"{key}_Ix")
+        c_Zx = st.number_input("塑性模數 Zx (cm³)", min_value=1.0,  max_value=999999.0,
+                               value=float(_Zx_est), step=1.0, format="%.1f", key=f"{key}_Zx")
 
     cust_name = f"自訂-{sec_type}{c_d}x{c_bf}x{c_tw}x{c_tf}"
     st.caption(f"斷面名稱：{cust_name} | A={c_A:.2f} cm² | Ix={c_Ix:.1f} cm⁴ | Zx={c_Zx:.1f} cm³")
@@ -238,12 +211,11 @@ def steel_section_selector(key: str, filter_type: str = 'all',
 # ============================================================
 # 鋼骨斷面寬厚比檢核
 # ============================================================
-def check_width_thickness(mat: Material, steel: SteelSection, member_type: str = "beam", is_seismic: bool = False, section_shape: str = "H") -> tuple:
+def check_width_thickness(mat: Material, steel: SteelSection) -> tuple:
     """
-    寬厚比檢核 (依台灣SRC設計規範第3章 表3.4-1, 3.4-2, 3.4-3)
-    member_type: "beam" = SRC梁, "column" = SRC柱
-    is_seismic: True = 耐震設計 (λpd), False = 一般設計 (λp)
-    section_shape: "H" = H型鋼, "BOX" = 箱型, "CFT_BOX" = CFT矩形, "CFT_CIRCLE" = CFT圓形
+    寬厚比檢核 (依台灣SRC設計規範 / AISC LRFD 緊密斷面限值)
+    H型鋼：翼板 λf = bf/(2tf)，腹板 λw = (d-2tf)/tw
+    BOX型鋼：板件 λ = (b-2t)/t
     """
     lines = []
     lines.append("=" * 60)
@@ -252,81 +224,45 @@ def check_width_thickness(mat: Material, steel: SteelSection, member_type: str =
     lines.append("=" * 60)
 
     E  = mat.Es
-    Fy = mat.fy_steel / 1000  # Fys 轉換為 tf/cm²
-    sqrt_Fy = math.sqrt(Fy)  # √(Fys)
-    
+    Fy = mat.fy_steel
+    r  = math.sqrt(E / Fy)   # √(Es/Fys)
+
     bf_cm = steel.bf / 10
     d_cm  = steel.d  / 10
     tf_cm = steel.tf / 10
     tw_cm = steel.tw / 10
 
     lines.append(f"  鋼骨斷面  : {steel.name}  ({steel.section_type}型)")
-    lines.append(f"  Es = {E:.0f} kgf/cm²，Fys = {Fy*1000:.0f} kgf/cm² ({Fy:.3f} tf/cm²)")
-    lines.append(f"  √(Fys) = {sqrt_Fy:.2f}")
+    lines.append(f"  Es = {E:.0f} kgf/cm²，Fys = {Fy:.0f} kgf/cm²")
+    lines.append(f"  √(Es/Fys) = {r:.3f}")
 
     is_ok = True
 
     if steel.section_type == 'H':
-        # ═════════════════════════════════════════════════════════════
-        # 依規範表 3.4-1 (梁) 或 3.4-2 (柱)
-        # ═════════════════════════════════════════════════════════════
-        lam_f   = bf_cm / (2 * tf_cm)  # 翼板 λf = 1/2 × bf/tf
-        
-        # 翼板檢核
-        # 一般設計：λp = 20（定值），耐震設計：λpd = 21/√Fys
-        if is_seismic:
-            lam_pf = 21.0 / sqrt_Fy   # λpd 塑性斷面上限
-        else:
-            lam_pf = 20.0   # λp 緊密斷面上限（定值）
-        lam_rf = 23.0 / sqrt_Fy   # 非緊密斷面上限
-        
+        # ── 翼板寬厚比 ────────────────────────────────────────
+        lam_f   = bf_cm / (2 * tf_cm)
+        lam_pf  = 0.38 * r    # 緊密斷面上限
+        lam_rf  = 1.00 * r    # 非緊密斷面上限
         if lam_f <= lam_pf:
             tag_f = "✓ 緊密斷面"
-        elif lam_f <= lam_rf * 1.3:
+        elif lam_f <= lam_rf:
             tag_f = "△ 非緊密斷面"
             is_ok = False
         else:
             tag_f = "✗ 細長斷面"
             is_ok = False
 
-        lines.append("\n【翼板寬厚比 λf = 1/2 × bf/tf】")
+        lines.append("\n【翼板寬厚比 λf = bf/(2tf)】")
         lines.append(f"  bf = {bf_cm:.1f} cm，tf = {tf_cm:.1f} cm")
-        lines.append(f"  λf  = 1/2 × {bf_cm:.1f}/{tf_cm:.1f} = {lam_f:.2f}")
-        if is_seismic:
-            lines.append(f"  λpd = 21/√(Fys) = 21/{sqrt_Fy:.2f} = {lam_pf:.2f}  ← 耐震設計限值")
-        else:
-            lines.append(f"  λp  = 20  ← 一般設計限值")
+        lines.append(f"  λf  = {bf_cm:.1f} / (2×{tf_cm:.1f}) = {lam_f:.2f}")
+        lines.append(f"  λpf = 0.38×√(Es/Fys) = 0.38×{r:.3f} = {lam_pf:.2f}  ← 緊密斷面限值")
+        lines.append(f"  λrf = 1.00×√(Es/Fys) = 1.00×{r:.3f} = {lam_rf:.2f}  ← 非緊密斷面限值")
         lines.append(f"  λf = {lam_f:.2f}  → {tag_f}")
 
-        # 腹板檢核
-        hc = d_cm - 2 * tf_cm  # 腹板有效高度 hc = d - 2tf
-        lam_w   = hc / tw_cm   # 腹板 λ = hc/tw
-        
-        if member_type == "column":
-            # 柱：表 3.4-2
-            # SS490: λp = 123/√(Fys), λr = 81/√(Fys)
-            # SS400: λp = 123/√(Fys), λr = 96/√(Fys)
-            # 使用一般值：λp = 123/√(Fys), λr = 90/√(Fys)
-            # 柱腹板檢核
-            # 一般設計：λp = 81（定值），耐震設計：λpd = 123/√Fys
-            if is_seismic:
-                lam_pw = 123.0 / sqrt_Fy   # 柱 λpd 塑性斷面上限
-            else:
-                lam_pw = 81.0    # 柱 λp 緊密斷面上限（定值）
-            lam_rw = 96.0 / sqrt_Fy   # 柱非緊密斷面上限 λr
-        else:
-            # 梁：表 3.4-1
-            # SS490: λp = 138/√(Fys), λr = 91/√(Fys)
-            # SS400: λp = 138/√(Fys), λr = 107/√(Fys)
-            # 使用一般值：λp = 138/√(Fys), λr = 100/√(Fys)
-            # 梁腹板檢核
-            # 一般設計：λp = 91（定值），耐震設計：λpd = 138/√Fys
-            if is_seismic:
-                lam_pw = 138.0 / sqrt_Fy   # 梁 λpd 塑性斷面上限
-            else:
-                lam_pw = 91.0    # 梁 λp 緊密斷面上限（定值）
-            lam_rw = 107.0 / sqrt_Fy   # 梁非緊密斷面上限
-        
+        # ── 腹板寬厚比 ────────────────────────────────────────
+        lam_w   = (d_cm - 2 * tf_cm) / tw_cm
+        lam_pw  = 3.76 * r   # 梁（純彎）緊密斷面上限
+        lam_rw  = 5.70 * r   # 非緊密斷面上限
         if lam_w <= lam_pw:
             tag_w = "✓ 緊密斷面"
         elif lam_w <= lam_rw:
@@ -336,23 +272,18 @@ def check_width_thickness(mat: Material, steel: SteelSection, member_type: str =
             tag_w = "✗ 細長斷面"
             is_ok = False
 
-        lines.append("\n【腹板寬厚比 λw = hc/tw】")
+        lines.append("\n【腹板寬厚比 λw = (d-2tf)/tw】")
         lines.append(f"  d = {d_cm:.1f} cm，tf = {tf_cm:.1f} cm，tw = {tw_cm:.1f} cm")
-        lines.append(f"  hc = d - 2tf = {d_cm:.1f} - 2×{tf_cm:.1f} = {hc:.1f} cm")
-        lines.append(f"  λw  = {hc:.1f} / {tw_cm:.1f} = {lam_w:.2f}")
-        if member_type == "column":
-            lines.append(f"  λp  = 123/√(Fys) = 123/{sqrt_Fy:.2f} = {lam_pw:.2f}  ← 柱緊密斷面限值（表3.4-2）")
-            lines.append(f"  λr  = 90/√(Fys)  ← 柱非緊密斷面限值")
-        else:
-            lines.append(f"  λp  = 138/√(Fys) = 138/{sqrt_Fy:.2f} = {lam_pw:.2f}  ← 梁緊密斷面限值（表3.4-1）")
-            lines.append(f"  λr  = 100/√(Fys)  ← 梁非緊密斷面限值")
+        lines.append(f"  λw  = ({d_cm:.1f}-2×{tf_cm:.1f}) / {tw_cm:.1f} = {lam_w:.2f}")
+        lines.append(f"  λpw = 3.76×√(Es/Fys) = 3.76×{r:.3f} = {lam_pw:.2f}  ← 梁緊密斷面限值")
+        lines.append(f"  λrw = 5.70×√(Es/Fys) = 5.70×{r:.3f} = {lam_rw:.2f}  ← 非緊密斷面限值")
         lines.append(f"  λw = {lam_w:.2f}  → {tag_w}")
 
-    elif steel.section_type == 'BOX':
+    else:  # BOX
         # ── 箱型斷面：寬側板件（b方向）────────────────────────
         lam_b   = (bf_cm - 2 * tw_cm) / tw_cm
-        lam_pb  = 1.12 * sqrt_Fy   # 緊密斷面上限
-        lam_rb  = 1.40 * sqrt_Fy   # 非緊密斷面上限
+        lam_pb  = 1.12 * r   # 緊密斷面上限
+        lam_rb  = 1.40 * r   # 非緊密斷面上限
         if lam_b <= lam_pb:
             tag_b = "✓ 緊密斷面"
         elif lam_b <= lam_rb:
@@ -365,8 +296,8 @@ def check_width_thickness(mat: Material, steel: SteelSection, member_type: str =
         lines.append("\n【箱形斷面板件寬厚比 (b-2t)/t】")
         lines.append(f"  bf = {bf_cm:.1f} cm，tw = {tw_cm:.1f} cm")
         lines.append(f"  λb  = ({bf_cm:.1f}-2×{tw_cm:.1f}) / {tw_cm:.1f} = {lam_b:.2f}")
-        lines.append(f"  λpb = 1.12×√(Es/Fys) = 1.12×{sqrt_Fy:.2f} = {lam_pb:.2f}  ← 緊密斷面限值")
-        lines.append(f"  λrb = 1.40×√(Es/Fys) = 1.40×{sqrt_Fy:.2f} = {lam_rb:.2f}  ← 非緊密斷面限值")
+        lines.append(f"  λpb = 1.12×√(Es/Fys) = 1.12×{r:.3f} = {lam_pb:.2f}  ← 緊密斷面限值")
+        lines.append(f"  λrb = 1.40×√(Es/Fys) = 1.40×{r:.3f} = {lam_rb:.2f}  ← 非緊密斷面限值")
         lines.append(f"  λb = {lam_b:.2f}  → {tag_b}")
 
         # ── 箱型斷面：深側板件（d方向）────────────────────────
@@ -400,39 +331,6 @@ def calc_beam(mat: Material, steel: SteelSection, b, h, cover, As_top, As_bot, M
     """
     規範 5.4 強度疊加法 / φMn = φ(Mns + Mnrc)
     """
-    # ══════════════════════════════════════════════════════════════
-    # 構造檢核（依規範第四章）
-    # ══════════════════════════════════════════════════════════════
-    warnings = []
-    
-    # 5.3.4 材料強度上限檢核
-    if mat.fy_steel > 3520:
-        warnings.append(f"⚠️ 鋼骨 Fys = {mat.fy_steel:.0f} kgf/cm² > 3520 kgf/cm²（規範建議上限）")
-    if mat.fy_rebar > 5600:
-        warnings.append(f"⚠️ 鋼筋 Fy = {mat.fy_rebar:.0f} kgf/cm² > 5600 kgf/cm²（規範建議上限）")
-    if mat.fc < 210:
-        warnings.append(f"⚠️ 混凝土 fc' = {mat.fc:.0f} kgf/cm² < 210 kgf/cm²（規範建議下限）")
-    if mat.fc > 420:
-        warnings.append(f"⚠️ 混凝土 fc' = {mat.fc:.0f} kgf/cm² > 420 kgf/cm²（建議經試驗證明）")
-    
-    # 4.3.4 梁箍筋檢核
-    # 箍筋直徑 ≥ D10
-    stir_size = stir_sz if 'stir_sz' in dir() else 'D10'
-    if 'D' in stir_size:
-        stir_num = int(stir_size.replace('D',''))
-        if stir_num < 10:
-            warnings.append(f"⚠️ 箍筋直徑 {stir_size} < D10（規範 4.3.4 要求）")
-    
-    # 箍筋間距 ≥ 75mm
-    if s_s < 7.5:
-        warnings.append(f"⚠️ 箍筋間距 s = {s_s:.1f} cm < 7.5 cm（規範 4.3.4 要求）")
-    
-    # 箍筋比 ρw ≥ 0.1%
-    rho_w = Av_s / (b * s_s * 100)  # 轉換為百分比
-    rho_w_min = 0.001
-    if rho_w < rho_w_min:
-        warnings.append(f"⚠️ 箍筋比 ρw = {rho_w*100:.3f}% < 0.1%（規範 4.3.4 要求）")
-    
     # 進行計算
     Mns = steel.Zx * mat.fy_steel / 1e5
     phi_Mns = 0.9 * Mns
@@ -447,69 +345,26 @@ def calc_beam(mat: Material, steel: SteelSection, b, h, cover, As_top, As_bot, M
     rho = As / (b * d_rc)
     rho_min = max(14.0 / mat.fy_rebar, 0.8 * math.sqrt(mat.fc) / mat.fy_rebar)
     
-    # ══════════════════════════════════════════════════════════════
-    # 剪力計算（依規範 5.5）
-    # ══════════════════════════════════════════════════════════════
+    # 剪力計算
     s_d_cm = steel.d / 10
     s_tw_cm = steel.tw / 10
     s_tf_cm = steel.tf / 10
-    Aw = s_tw_cm * (s_d_cm - 2 * s_tf_cm)  # 腹板斷面積
-    
-    # 5.5.1 鋼骨部分剪力強度
-    # Vns = 0.6 × Fyw × Aw（腹板剪力強度）
-    Vns = 0.6 * mat.fy_steel * Aw / 1000  # tf
-    phi_Vns = 0.9 * Vns  # φvs = 0.9
-    
-    # 5.5.2 RC部分剪力強度
-    # Vc = 0.53 × √fc' × b × d（混凝土貢獻）
-    Vc = 0.53 * math.sqrt(mat.fc) * b * d_rc / 1000  # tf
-    phi_Vc = 0.75 * Vc  # φvrc = 0.75
-    
-    # 箍筋貢獻 Vs
+    Aw = s_tw_cm * (s_d_cm - 2 * s_tf_cm)
+    Vns = 0.6 * mat.fy_steel * Aw / 1000
+    phi_Vns = 0.9 * Vns
+    Vc = 0.53 * math.sqrt(mat.fc) * b * d_rc / 1000
+    phi_Vc = 0.75 * Vc
     Vs = (Av_s * mat.fy_rebar * d_rc / s_s / 1000) if (Av_s > 0 and s_s > 0) else 0.0
     phi_Vs = 0.75 * Vs
-    
-    # RC部分總剪力強度
-    Vnrc = Vc + Vs
-    phi_Vnrc = 0.75 * Vnrc
-    
-    # 總剪力強度
-    phi_Vn = phi_Vns + phi_Vnrc
-    
-    # ══════════════════════════════════════════════════════════════
-    # 剪力檢核（依規範 5.5 公式）
-    # 鋼骨：φvsVns ≥ (Mns/Mn) × Vu
-    # RC：φvrcVnrc ≥ (Mnrc/Mn) × Vu
-    # ══════════════════════════════════════════════════════════════
-    Mn_total = Mns + Mnrc  # 總標稱彎矩強度
-    
-    if Vu > 0 and Mn_total > 0:
-        # 鋼骨部分需要剪力
-        Vu_s = (Mns / Mn_total) * Vu
-        phi_Vns_required = Vu_s
-        ok_vu_s = phi_Vns >= phi_Vns_required
-        
-        # RC部分需要剪力
-        Vu_rc = (Mnrc / Mn_total) * Vu
-        phi_Vnrc_required = Vu_rc
-        ok_vu_rc = phi_Vnrc >= phi_Vnrc_required
-        
-        ok_vu = ok_vu_s and ok_vu_rc
-    else:
-        Vu_s = 0
-        Vu_rc = 0
-        phi_Vns_required = 0
-        phi_Vnrc_required = 0
-        ok_vu_s = True
-        ok_vu_rc = True
-        ok_vu = True
+    phi_Vn = phi_Vns + phi_Vc + phi_Vs
     
     # 寬厚比
-    wt_report, wt_ok = check_width_thickness(mat, steel, "beam", is_seismic, "H")
+    wt_report, wt_ok = check_width_thickness(mat, steel)
     
     # 判定
     ok_mu = phi_Mn >= Mu
     ok_rho = rho >= rho_min
+    ok_vu = (Vu <= 0 or Vu <= phi_Vn)
     is_safe = ok_mu and ok_rho and ok_vu and wt_ok
     
     # 組裝報告
@@ -517,16 +372,9 @@ def calc_beam(mat: Material, steel: SteelSection, b, h, cover, As_top, As_bot, M
     lines.append("=" * 60)
     lines.append("SRC 梁設計分析報告 (分析結果摘要)")
     lines.append("=" * 60)
-    # 加入材料強度警告
-    for w in warnings:
-        lines.append(w)
     lines.append(f"  ● 彎矩強度：Mu={Mu:.2f} / φMn={phi_Mn:.2f} (tf-m) -> D/C={Mu/phi_Mn if phi_Mn>0 else 0:.3f} {'✓' if ok_mu else '✗'}")
     if Vu > 0:
-        lines.append(f"  ● 剪力強度：")
-        lines.append(f"      鋼骨：Vu_s={Vu_s:.2f} / φVns={phi_Vns:.2f} → D/C={Vu_s/phi_Vns if phi_Vns>0 else 0:.3f} {'✓' if ok_vu_s else '✗'}")
-        lines.append(f"      RC：Vu_rc={Vu_rc:.2f} / φVnrc={phi_Vnrc:.2f} → D/C={Vu_rc/phi_Vnrc if phi_Vnrc>0 else 0:.3f} {'✓' if ok_vu_rc else '✗'}")
-    else:
-        lines.append(f"  ● 剪力強度：— 未輸入 Vu")
+        lines.append(f"  ● 剪力強度：Vu={Vu:.2f} / φVn={phi_Vn:.2f} (tf)   -> D/C={Vu/phi_Vn if phi_Vn>0 else 0:.3f} {'✓' if ok_vu else '✗'}")
     lines.append(f"  ● 最小鋼筋：ρ={rho:.5f} / ρmin={rho_min:.5f}      -> {'✓' if ok_rho else '✗'}")
     lines.append(f"  ● 鋼骨寬厚比：{ '✓ 合格' if wt_ok else '✗ 不合格' }")
     lines.append(f"\n  結論：{'設計安全 ✓' if is_safe else '設計不足 ✗，請檢視詳細計算'}")
@@ -539,58 +387,23 @@ def calc_beam(mat: Material, steel: SteelSection, b, h, cover, As_top, As_bot, M
     lines.append(f"   Fys: {mat.fy_steel:.0f}, Fy: {mat.fy_rebar:.0f}, fc': {mat.fc:.0f} (kgf/cm²)")
     
     lines.append(f"\n2. 彎矩強度 (疊加法)")
-    lines.append(f"   2.1 鋼骨部分彎矩強度 Mns（規範 5.4.2）")
-    lines.append(f"       Mns = Zs × Fys = {steel.Zx:.1f} cm³ × {mat.fy_steel:.0f} kgf/cm²")
-    lines.append(f"          = {steel.Zx * mat.fy_steel:.0f} kgf·cm = {Mns:.3f} tf-m")
-    lines.append(f"       φMns = 0.9 × Mns = 0.9 × {Mns:.3f} = {phi_Mns:.3f} tf-m")
-    lines.append(f"   2.2 RC部分彎矩強度 Mnrc（規範 5.4.3）")
-    lines.append(f"       a = As×Fy/(0.85×fc'×b)")
-    lines.append(f"         = {As:.2f}×{mat.fy_rebar:.0f}/(0.85×{mat.fc:.0f}×{b}) = {a:.3f} cm")
-    lines.append(f"       d = h - dc = {h} - {cover} = {d_rc:.1f} cm")
-    lines.append(f"       Mnrc = As×Fy×(d-a/2)")
-    lines.append(f"           = {As:.2f}×{mat.fy_rebar:.0f}×({d_rc:.1f}-{a:.3f}/2)")
-    lines.append(f"           = {Mnrc:.1f} kgf·cm = {Mnrc:.3f} tf-m")
-    lines.append(f"       φMnrc = 0.9 × Mnrc = 0.9 × {Mnrc:.3f} = {phi_Mnrc:.3f} tf-m")
-    lines.append(f"   2.3 疊加彎矩強度")
-    lines.append(f"       φMn = φMns + φMnrc")
-    lines.append(f"          = {phi_Mns:.3f} + {phi_Mnrc:.3f} = {phi_Mn:.3f} tf-m")
+    lines.append(f"   φMns = 0.9 × (Zs×Fys) = 0.9 × ({steel.Zx:.1f}×{mat.fy_steel:.0f}/10⁵) = {phi_Mns:.3f} tf-m")
+    lines.append(f"   a = As×Fy/(0.85×fc'×b) = {As:.2f}×{mat.fy_rebar:.0f}/(0.85×{mat.fc:.0f}×{b}) = {a:.3f} cm")
+    lines.append(f"   φMnrc = 0.9 × As×Fy×(d-a/2) = 0.9×{Mnrc:.3f} = {phi_Mnrc:.3f} tf-m")
+    lines.append(f"   φMn = {phi_Mns:.3f} + {phi_Mnrc:.3f} = {phi_Mn:.3f} tf-m")
     
-    lines.append(f"\n3. 剪力強度（依規範 5.5）")
-    lines.append(f"   3.1 鋼骨部分剪力強度（規範 5.5.1）")
-    lines.append(f"       Aw = tw × (d-2tf) = {s_tw_cm:.2f} × ({s_d_cm:.1f}-2×{s_tf_cm:.2f}) = {Aw:.2f} cm²")
-    lines.append(f"       Vns = 0.6 × Fys × Aw = 0.6 × {mat.fy_steel:.0f} × {Aw:.2f} / 1000 = {Vns:.3f} tf")
-    lines.append(f"       φvsVns = 0.9 × {Vns:.3f} = {phi_Vns:.3f} tf")
-    lines.append(f"   3.2 RC部分剪力強度（規範 5.5.2）")
-    lines.append(f"       Vc = 0.53√fc' × b × d = 0.53×√{mat.fc:.0f}×{b}×{d_rc:.1f}/1000 = {Vc:.3f} tf")
-    if Av_s > 0:
-        lines.append(f"       Vs = Av×Fy×d/s = {Av_s:.2f}×{mat.fy_rebar:.0f}×{d_rc:.1f}/{s_s:.1f}/1000 = {Vs:.3f} tf")
-    else:
-        lines.append(f"       Vs = 0 tf（無箍筋）")
-    lines.append(f"       Vnrc = Vc + Vs = {Vc:.3f} + {Vs:.3f} = {Vnrc:.3f} tf")
-    lines.append(f"       φvrcVnrc = 0.75 × {Vnrc:.3f} = {phi_Vnrc:.3f} tf")
-    lines.append(f"   3.3 彎矩分配比例")
-    lines.append(f"       Mns = {Mns:.3f} tf-m，Mnrc = {Mnrc:.3f} tf-m，Mn = {Mn_total:.3f} tf-m")
-    if Vu > 0:
-        lines.append(f"       鋼骨分擔剪力：Vu_s = (Mns/Mn)×Vu = ({Mns:.3f}/{Mn_total:.3f})×{Vu:.2f} = {Vu_s:.3f} tf")
-        lines.append(f"       RC分擔剪力：Vu_rc = (Mnrc/Mn)×Vu = ({Mnrc:.3f}/{Mn_total:.3f})×{Vu:.2f} = {Vu_rc:.3f} tf")
-    lines.append(f"   3.4 剪力檢核")
-    if Vu > 0:
-        lines.append(f"       鋼骨：φvsVns = {phi_Vns:.3f} tf {'≥' if ok_vu_s else '<'} Vu_s = {phi_Vns_required:.3f} tf → {'✓ OK' if ok_vu_s else '✗ NG'}")
-        lines.append(f"       RC：φvrcVnrc = {phi_Vnrc:.3f} tf {'≥' if ok_vu_rc else '<'} Vu_rc = {phi_Vnrc_required:.3f} tf → {'✓ OK' if ok_vu_rc else '✗ NG'}")
-    else:
-        lines.append(f"       Vu = 0，無剪力檢核需求")
+    lines.append(f"\n3. 剪力強度 (疊加法)")
+    lines.append(f"   φVns = 0.9 × (0.6×Fys×Aw) = 0.9 × (0.6×{mat.fy_steel:.0f}×{Aw:.2f}/1000) = {phi_Vns:.3f} tf")
+    lines.append(f"   φVc = 0.75 × (0.53√fc'×b×d/1000) = {phi_Vc:.3f} tf")
+    lines.append(f"   φVs = 0.75 × (Av×Fyr×d/s/1000) = {phi_Vs:.3f} tf")
+    lines.append(f"   φVn = {phi_Vn:.3f} tf")
     
     lines.append("\n4. 鋼骨寬厚比檢核")
     lines.append(wt_report)
 
     result = {
         'Mns': Mns, 'Mnrc': Mnrc, 'phi_Mn': phi_Mn,
-        'phi_Mns': phi_Mns, 'phi_Mnrc': phi_Mnrc, 'phi_Vns': phi_Vns, 'phi_Vnrc': phi_Vnrc,
-        'Vu_s': Vu_s, 'Vu_rc': Vu_rc,
-        'rho': rho, 'rho_min': rho_min, 'ok_rho': ok_rho,
-        'ok_vu_s': ok_vu_s, 'ok_vu_rc': ok_vu_rc,
-        'ok': is_safe, 'wt_ok': wt_ok,
-        'warnings': warnings
+        'phi_Vn': phi_Vn, 'ok': is_safe, 'wt_ok': wt_ok
     }
     return '\n'.join(lines), result
 
@@ -648,22 +461,15 @@ def calc_column(mat: Material, steel: SteelSection, b, h, cover, As, Pu, Mu,
     Pn_s   = mat.fy_steel * A_steel / 1000
     phi_Pn = 0.75 * Pn_rc + 0.9 * Pn_s
 
-    # ── 相對剛度計算（依規範 7.3）────────────────────────────
-    # 軸力分配：rs = Es×Is / (Es×Is + 0.55×Ec×Ac) - 考量混凝土非線性行為
-    # 彎矩分配：rs = Es×Is / (Es×Is + 0.35×Ec×Ig) - 考量混凝土開裂影響
+    # ── 相對剛度（前置計算） ────────────────────────────────
     Is   = steel.Ix
-    Ic   = b * (h ** 3) / 12  # 全斷面慣性矩 Ig
-    Ac   = b * h - A_steel     # 混凝土淨面積
-    
+    Ic   = b * (h ** 3) / 12
     EsIs = mat.Es * Is
-    EcAc = 0.55 * mat.Ec * Ac  # 軸力分配用
-    EcIg = 0.35 * mat.Ec * Ic   # 彎矩分配用
-    
-    rs_P = EsIs / (EsIs + EcAc)  # 軸力分配係數
-    rs_M = EsIs / (EsIs + EcIg)  # 彎矩分配係數
-    
-    Pu_s  = rs_P * Pu;  Pu_rc = (1 - rs_P) * Pu
-    Mu_s  = rs_M * Mu;  Mu_rc = (1 - rs_M) * Mu
+    EcIc = mat.Ec * Ic
+    rs   = EsIs / (EsIs + EcIc)
+    rrc  = 1 - rs
+    Pu_s  = rs  * Pu;  Pu_rc = rrc * Pu
+    Mu_s  = rs  * Mu;  Mu_rc = rrc * Mu
 
     # ══════════════════════════════════════════════════════
     # 二、鋼骨彎矩強度 Mns
@@ -676,32 +482,20 @@ def calc_column(mat: Material, steel: SteelSection, b, h, cover, As, Pu, Mu,
     lines.append(f"  Mns = Fys × Zs / 10⁵ = {mat.fy_steel:.0f} × {steel.Zx:.1f} / 10⁵ = {Mns:.3f} tf-m")
     lines.append(f"  φMns = 0.9 × {Mns:.3f} = {phi_Mns:.3f} tf-m")
     lines.append(f"\n  ─ 相對剛度分配（規範 7.3）─")
-    lines.append(f"  Is = {Is:.1f} cm⁴，Ig = b×h³/12 = {Ic:.1f} cm⁴")
-    lines.append(f"  Ac = b×h − A_steel = {b}×{h} − {A_steel:.2f} = {Ac:.2f} cm²")
-    lines.append(f"  軸力分配：rs_P = Es×Is / (Es×Is + 0.55×Ec×Ac)")
-    lines.append(f"          = {EsIs:.3e}/({EsIs:.3e}+{EcAc:.3e}) = {rs_P:.4f}")
-    lines.append(f"  彎矩分配：rs_M = Es×Is / (Es×Is + 0.35×Ec×Ig)")
-    lines.append(f"          = {EsIs:.3e}/({EsIs:.3e}+{EcIg:.3e}) = {rs_M:.4f}")
-    lines.append(f"  Pu_s = rs_P × Pu = {rs_P:.4f} × {Pu:.2f} = {Pu_s:.2f} tf")
-    lines.append(f"  Pu_rc = (1-rs_P) × Pu = {1-rs_P:.4f} × {Pu:.2f} = {Pu_rc:.2f} tf")
-    lines.append(f"  Mu_s = rs_M × Mu = {rs_M:.4f} × {Mu:.2f} = {Mu_s:.3f} tf-m")
-    lines.append(f"  Mu_rc = (1-rs_M) × Mu = {1-rs_M:.4f} × {Mu:.2f} = {Mu_rc:.3f} tf-m")
+    lines.append(f"  Is = {Is:.1f} cm⁴，Ic = b×h³/12 = {Ic:.1f} cm⁴")
+    lines.append(f"  r_s  = {EsIs:.3e}/({EsIs:.3e}+{EcIc:.3e}) = {rs:.4f}")
+    lines.append(f"  r_rc = 1 − r_s = {rrc:.4f}")
+    lines.append(f"  Mu_s = {rs:.4f}×{Mu:.2f} = {Mu_s:.3f} tf-m")
     lines.append(f"  φPns = 0.9×Fys×As_stl = 0.9×{mat.fy_steel:.0f}×{A_steel:.2f}/1000 = {0.9*Pns:.2f} tf")
     ratio_pu_pns = Pu_s / (0.9 * Pns) if Pns > 0 else 0
     if ratio_pu_pns >= 0.2:
-        # 規範 7.3.2 公式 (7.3-7)：Pu/φPns + (8/9)×Mu/φMns ≤ 1.0
-        chk_s = Pu_s / (0.9 * Pns) + (8/9) * Mu_s / (0.9 * Mns)
+        chk_s = Pu_s / (0.9 * Pns) + Mu_s / (0.9 * Mns)
         lines.append(f"  P-M交互作用（Pu_s/φPns={ratio_pu_pns:.3f} ≥ 0.2）：")
-        lines.append(f"  規範公式：Pu_s/(φPns) + 8/9 × Mu_s/(φMns) ≤ 1.0")
-        lines.append(f"  = {Pu_s:.2f}/{0.9*Pns:.2f} + 8/9 × {Mu_s:.2f}/{phi_Mns:.3f}")
-        lines.append(f"  = {Pu_s/(0.9*Pns):.3f} + {Mu_s/phi_Mns*8/9:.3f} = {chk_s:.3f}")
+        lines.append(f"  Pu_s/(φPns)+Mu_s/(φMns) = {Pu_s:.2f}/{0.9*Pns:.2f}+{Mu_s:.2f}/{phi_Mns:.3f} = {chk_s:.3f}")
     else:
-        # 規範 7.3.2 公式 (7.3-8)：Pu/(2φPns) + Mu/φMns ≤ 1.0
         chk_s = Pu_s / (1.8 * Pns) + Mu_s / (0.9 * Mns)
         lines.append(f"  P-M交互作用（Pu_s/φPns={ratio_pu_pns:.3f} < 0.2）：")
-        lines.append(f"  規範公式：Pu_s/(2φPns) + Mu_s/(φMns) ≤ 1.0")
-        lines.append(f"  = {Pu_s:.2f}/{1.8*Pns:.2f} + {Mu_s:.2f}/{phi_Mns:.3f}")
-        lines.append(f"  = {Pu_s/(1.8*Pns):.3f} + {Mu_s/phi_Mns:.3f} = {chk_s:.3f}")
+        lines.append(f"  Pu_s/(1.8Pns)+Mu_s/(φMns) = {Pu_s:.2f}/{1.8*Pns:.2f}+{Mu_s:.2f}/{phi_Mns:.3f} = {chk_s:.3f}")
     ok_s = "✓ OK" if chk_s <= 1.0 else "✗ NG"
     lines.append(f"  鋼骨P-M比值 = {chk_s:.3f} → {ok_s}")
 
@@ -782,12 +576,9 @@ def calc_column(mat: Material, steel: SteelSection, b, h, cover, As, Pu, Mu,
     lines.append(f"  RC部分P-M（ACI 7.3.2）= {chk_r:.3f} → {ok_r}")
     lines.append(f"  疊加彎矩：φMn = {phi_Mn_total:.3f} tf-m，Mu = {Mu:.2f} tf-m，D/C = {dc_M:.3f} → {tag_mu}")
 
-    # ══════════════════════════════════════════════════════════════
-    # 七、剪力強度檢核（依規範 7.4 彎矩分配比例）
-    # ══════════════════════════════════════════════════════════════
-    lines.append("\n【七、剪力強度檢核】(規範 7.4 彎矩分配法)")
-    
-    # --- 7.1 計算各部分剪力強度 ---
+    # ── 七、剪力強度檢核 ────────────────────────────────────
+    lines.append("\n【七、剪力強度檢核】(規範 5.5 / 7.4 強度疊加法)")
+    # 鋼骨腹板剪力
     s_d_cm  = steel.d  / 10
     s_tw_cm = steel.tw / 10
     s_tf_cm = steel.tf / 10
@@ -796,80 +587,24 @@ def calc_column(mat: Material, steel: SteelSection, b, h, cover, As, Pu, Mu,
         Aw_col = 2 * s_tw_cm * (s_d_cm - 2 * s_tf_cm)
     else:
         Aw_col = s_tw_cm * (s_d_cm - 2 * s_tf_cm)
-    
-    # 鋼骨腹板剪力強度
     Vns_col  = 0.6 * mat.fy_steel * Aw_col / 1000
     phi_Vns_col = 0.9 * Vns_col
-    
-    # RC混凝土剪力強度
+    # RC混凝土剪力
     Vc_col   = 0.53 * math.sqrt(mat.fc) * b * d_rc / 1000
     phi_Vc_col = 0.75 * Vc_col
-    
-    # 箍筋剪力強度
+    # 箍筋剪力
     Vs_col   = (Av_s * mat.fy_rebar * d_rc / s_s / 1000) if (Av_s > 0 and s_s > 0) else 0.0
     phi_Vs_col = 0.75 * Vs_col
-    
-    # RC部分總剪力強度
-    phi_Vnrc_col = phi_Vc_col + phi_Vs_col
-    
-    # --- 7.2 彎矩分配比例計算 ---
-    Mn_total = Mns + Mn_rc  # 總標稱彎矩強度
-    
-    if Vu > 0 and Mn_total > 0:
-        # 依彎矩比例分配剪力
-        Vu_s_col = (Mns / Mn_total) * Vu   # 鋼骨分擔剪力
-        Vu_rc_col = (Mn_rc / Mn_total) * Vu # RC分擔剪力
-    else:
-        Vu_s_col = 0
-        Vu_rc_col = 0
-    
-    # --- 7.3 各部分剪力檢核 ---
-    # 鋼骨部分檢核
-    if Vu > 0:
-        dc_Vu_s = Vu_s_col / phi_Vns_col if phi_Vns_col > 0 else 999
-        ok_Vu_s = dc_Vu_s <= 1.0
-    else:
-        dc_Vu_s = 0
-        ok_Vu_s = True
-    
-    # RC部分檢核
-    if Vu > 0:
-        dc_Vu_rc = Vu_rc_col / phi_Vnrc_col if phi_Vnrc_col > 0 else 999
-        ok_Vu_rc = dc_Vu_rc <= 1.0
-    else:
-        dc_Vu_rc = 0
-        ok_Vu_rc = True
-    
-    # 總剪力檢核
-    phi_Vn_col = phi_Vns_col + phi_Vnrc_col
-    if Vu > 0:
-        dc_vu = Vu / phi_Vn_col if phi_Vn_col > 0 else 999
-        ok_vu = dc_vu <= 1.0
-    else:
-        dc_vu = 0.0
-        ok_vu = True
-    
-    # --- 7.4 輸出計算結果 ---
-    lines.append("  「彎矩分配法」：依據彎矩強度比例分配剪力給鋼骨與RC部分")
-    lines.append(f"  Mns = {Mns:.3f} tf-m，Mnrc = {Mnrc:.3f} tf-m，Mn_total = {Mn_total:.3f} tf-m")
-    if Vu > 0:
-        lines.append(f"  Vu_s = (Mns/Mn)×Vu = ({Mns:.3f}/{Mn_total:.3f})×{Vu:.2f} = {Vu_s_col:.3f} tf（鋼骨分擔）")
-        lines.append(f"  Vu_rc = (Mnrc/Mn)×Vu = ({Mnrc:.3f}/{Mn_total:.3f})×{Vu:.2f} = {Vu_rc_col:.3f} tf（RC分擔）")
-    
-    lines.append("")
-    lines.append("  ─── 鋼骨部分剪力強度 ───")
+    # 疊加剪力強度
+    phi_Vn_col = phi_Vns_col + phi_Vc_col + phi_Vs_col
+
+    lines.append("  「強度疊加法」：φVn = φVns（鋼骨腹板）+ φVc（混凝土）+ φVs（箍筋）")
     if steel.section_type == 'BOX':
         lines.append(f"  BOX型鋼：Aw = 2×tw×(d-2tf) = 2×{s_tw_cm:.1f}×({s_d_cm:.1f}-2×{s_tf_cm:.2f}) = {Aw_col:.2f} cm²")
     else:
         lines.append(f"  H型鋼：Aw = tw×(d-2tf) = {s_tw_cm:.1f}×({s_d_cm:.1f}-2×{s_tf_cm:.2f}) = {Aw_col:.2f} cm²")
     lines.append(f"  Vns = 0.6×Fys×Aw = 0.6×{mat.fy_steel:.0f}×{Aw_col:.2f}/1000 = {Vns_col:.3f} tf")
     lines.append(f"  φVns = 0.9×Vns = 0.9×{Vns_col:.3f} = {phi_Vns_col:.3f} tf")
-    if Vu > 0:
-        tag_Vu_s = '✓ OK' if ok_Vu_s else '✗ NG'
-        lines.append(f"  檢核：Vu_s = {Vu_s_col:.3f} tf {'≤' if ok_Vu_s else '>'} φVns = {phi_Vns_col:.3f} tf，D/C = {dc_Vu_s:.3f} → {tag_Vu_s}")
-    
-    lines.append("")
-    lines.append("  ─── RC部分剪力強度 ───")
     lines.append(f"  Vc = 0.53×√fc'×b×d/1000 = 0.53×√{mat.fc:.0f}×{b}×{d_rc:.1f}/1000 = {Vc_col:.3f} tf")
     lines.append(f"  φVc = 0.75×Vc = 0.75×{Vc_col:.3f} = {phi_Vc_col:.3f} tf")
     if Av_s > 0:
@@ -877,18 +612,15 @@ def calc_column(mat: Material, steel: SteelSection, b, h, cover, As, Pu, Mu,
         lines.append(f"  φVs = 0.75×Vs = 0.75×{Vs_col:.3f} = {phi_Vs_col:.3f} tf")
     else:
         lines.append("  φVs = 0.000 tf（未輸入箍筋剪力筋面積）")
-    lines.append(f"  φVnrc = φVc + φVs = {phi_Vc_col:.3f} + {phi_Vs_col:.3f} = {phi_Vnrc_col:.3f} tf")
+    lines.append(f"  φVn = {phi_Vns_col:.3f} + {phi_Vc_col:.3f} + {phi_Vs_col:.3f} = {phi_Vn_col:.3f} tf")
+    ok_vu = True
     if Vu > 0:
-        tag_Vu_rc = '✓ OK' if ok_Vu_rc else '✗ NG'
-        lines.append(f"  檢核：Vu_rc = {Vu_rc_col:.3f} tf {'≤' if ok_Vu_rc else '>'} φVnrc = {phi_Vnrc_col:.3f} tf，D/C = {dc_Vu_rc:.3f} → {tag_Vu_rc}")
-    
-    lines.append("")
-    lines.append("  ─── 總剪力強度 ───")
-    lines.append(f"  φVn = φVns + φVnrc = {phi_Vns_col:.3f} + {phi_Vnrc_col:.3f} = {phi_Vn_col:.3f} tf")
-    if Vu > 0:
+        dc_vu = Vu / phi_Vn_col if phi_Vn_col > 0 else 999
+        ok_vu = (dc_vu <= 1.0)
         tag_vu = '✓ OK' if ok_vu else '✗ NG'
-        lines.append(f"  Vu = {Vu:.2f} tf {'≤' if ok_vu else '>'} φVn = {phi_Vn_col:.3f} tf，D/C = {dc_vu:.3f} → {tag_vu}")
+        lines.append(f"  Vu = {Vu:.2f} tf{'≤' if ok_vu else '>'} φVn = {phi_Vn_col:.3f} tf，D/C = {dc_vu:.3f} → {tag_vu}")
     else:
+        dc_vu = 0.0
         lines.append("  （未輸入設計剪力 Vu，剪力強度僅供參考）")
 
     # ══════════════════════════════════════════════════════
@@ -913,36 +645,22 @@ def calc_column(mat: Material, steel: SteelSection, b, h, cover, As, Pu, Mu,
     lines.append(f"  ★ {'設計安全 ✓  所有檢核均通過' if is_safe else '設計不足 ✗  請檢視不通過項目並加大斷面或配筋'}")
     lines.append("=" * 60)
 
-    wt_report, wt_ok = check_width_thickness(mat, steel, "column", is_seismic, "H")
+    wt_report, wt_ok = check_width_thickness(mat, steel)
     lines.append("")
     lines.append(wt_report)
 
     result = {
         'phi_Pn': phi_Pn,  'Pn_rc': Pn_rc,  'Pn_s': Pn_s,
-        'Ac': Ac,           'rs': rs_P,       'rrc': 1-rs_P,
+        'Ac': Ac,           'rs': rs,          'rrc': rrc,
         'Pu_s': Pu_s,       'Pu_rc': Pu_rc,    'Mu_s': Mu_s,  'Mu_rc': Mu_rc,
         'Pns': Pns,         'Mns': Mns,        'Mn_rc': Mn_rc,
         'phi_Mns': phi_Mns, 'phi_Mn_rc': phi_Mn_rc, 'phi_Mn': phi_Mn_total,
         'chk_s': chk_s,     'chk_r': chk_r,    'is_safe': is_safe,
-        'b': b, 'd_rc': d_rc, 'a': a2,        'Ic': Ic,       'Is': Is,
+        'd_rc': d_rc,        'a': a2,           'Ic': Ic,       'Is': Is,
         'wt_ok': wt_ok,      'rho': rho,        'rho_min': rho_min,
         'ok_rho': ok_rho,    'dc_P': dc_P,      'ok_pu': ok_pu,
         'dc_M': dc_M,        'ok_mu': ok_mu,
-        # 剪力強度（彎矩分配法）
-        'phi_Vn': phi_Vn_col, 
-        'phi_Vns_col': phi_Vns_col, 
-        'phi_Vc_col': phi_Vc_col, 
-        'phi_Vs_col': phi_Vs_col,
-        'phi_Vnrc_col': phi_Vnrc_col,
-        'Vu': Vu,         
-        'Vu_s_col': Vu_s_col,
-        'Vu_rc_col': Vu_rc_col,
-        'dc_vu': dc_vu, 
-        'dc_Vu_s': dc_Vu_s,
-        'dc_Vu_rc': dc_Vu_rc,
-        'ok_vu': ok_vu,
-        'ok_Vu_s': ok_Vu_s,
-        'ok_Vu_rc': ok_Vu_rc
+        'phi_Vn': phi_Vn_col, 'Vu': Vu,         'dc_vu': dc_vu, 'ok_vu': ok_vu
     }
     return '\n'.join(lines), result
 
@@ -973,23 +691,13 @@ def gen_pm_curve(mat, steel, b, h, cover, As, pts=60):
 
 
 # ============================================================
-# 配筋圖 - SRC 梁 ()
+# 配筋圖 - SRC 梁 (依圖C5.2.1)
 # ============================================================
 def draw_beam_section(fig, ax, steel: SteelSection, b, h, cover,
                       top_rebars, bot_rebars, top_size, bot_size):
     """
-    依規範包覆型SRC梁斷面配筋示意
+    依規範圖C5.2.1 包覆型SRC梁斷面配筋示意
     """
-    # 設定中文字體（適用於 Streamlit Cloud）
-    try:
-        from matplotlib.font_manager import FontProperties
-        # 嘗試使用系統中文字體
-        font_cn = FontProperties(family=['Microsoft JhengHei', 'PingFang TC', 
-                                         'Noto Sans CJK TC', 'WenQuanYi Zen Hei', 
-                                         'DejaVu Sans'])
-    except Exception:
-        font_cn = None
-    
     ax.set_aspect('equal')
     ax.set_xlim(-b/2 - 5, b/2 + 5)
     ax.set_ylim(-h/2 - 5, h/2 + 5)
@@ -1049,10 +757,10 @@ def draw_beam_section(fig, ax, steel: SteelSection, b, h, cover,
                 arrowprops=dict(arrowstyle='<->', color='black'))
     ax.text(b/2 + 4.5, 0, f'h = {h} cm', ha='left', va='center', fontsize=11, rotation=90)
 
-    ax.set_title(f'包覆型SRC梁斷面配筋示意\n'
+    ax.set_title(f'圖C5.2.1 包覆型SRC梁斷面配筋示意\n'
                  f'b×h={b}×{h}cm  鋼骨:{steel.name}\n'
                  f'上筋:{top_rebars}-{top_size}  下筋:{bot_rebars}-{bot_size}',
-                 fontsize=14, fontweight='bold', fontproperties=font_cn)
+                 fontsize=12, fontweight='bold')
 
     # 圖例
     legend_elements = [
@@ -1062,26 +770,17 @@ def draw_beam_section(fig, ax, steel: SteelSection, b, h, cover,
         mpatches.Patch(fc='#0044CC', ec='black', label=f'下筋 {bot_rebars}-{bot_size}'),
     ]
     ax.legend(handles=legend_elements, loc='upper left', fontsize=9,
-               bbox_to_anchor=(1.02, 1), borderaxespad=0, framealpha=0.8, prop=font_cn)
+               bbox_to_anchor=(1.02, 1), borderaxespad=0, framealpha=0.8)
 
 
 # ============================================================
-# 配筋圖 - SRC 柱 ()
+# 配筋圖 - SRC 柱 (依圖C6.2.1)
 # ============================================================
 def draw_column_section(fig, ax, steel: SteelSection, b, h, cover,
                         num_bars, bar_size):
     """
-    依規範包覆型SRC柱斷面配筋示意
+    依規範圖C6.2.1 包覆型SRC柱斷面配筋示意
     """
-    # 設定中文字體（適用於 Streamlit Cloud）
-    try:
-        from matplotlib.font_manager import FontProperties
-        font_cn = FontProperties(family=['Microsoft JhengHei', 'PingFang TC', 
-                                         'Noto Sans CJK TC', 'WenQuanYi Zen Hei', 
-                                         'DejaVu Sans'])
-    except Exception:
-        font_cn = None
-    
     ax.set_aspect('equal')
     ax.set_xlim(-b/2 - 5, b/2 + 5)
     ax.set_ylim(-h/2 - 5, h/2 + 5)
@@ -1157,10 +856,10 @@ def draw_column_section(fig, ax, steel: SteelSection, b, h, cover,
                 arrowprops=dict(arrowstyle='<->', color='black'))
     ax.text(b/2 + 4.5, 0, f'h = {h} cm', ha='left', va='center', fontsize=11, rotation=90)
 
-    ax.set_title(f'包覆型SRC柱斷面配筋示意\n'
+    ax.set_title(f'圖C6.2.1 包覆型SRC柱斷面配筋示意\n'
                  f'b×h={b}×{h}cm  鋼骨:{steel.name}\n'
                  f'縱筋:{num_bars}-{bar_size}',
-                 fontsize=14, fontweight='bold', fontproperties=font_cn)
+                 fontsize=12, fontweight='bold')
 
     legend_elements = [
         mpatches.Patch(fc='#D0D0D0', ec='black', label='混凝土'),
@@ -1168,7 +867,7 @@ def draw_column_section(fig, ax, steel: SteelSection, b, h, cover,
         mpatches.Patch(fc='#CC0000', ec='black', label=f'縱筋 {num_bars}-{bar_size}'),
     ]
     ax.legend(handles=legend_elements, loc='upper left', fontsize=9,
-               bbox_to_anchor=(1.02, 1), borderaxespad=0, framealpha=0.8, prop=font_cn)
+               bbox_to_anchor=(1.02, 1), borderaxespad=0, framealpha=0.8)
 
 
 # ============================================================
@@ -1192,12 +891,7 @@ def show_beam_summary(res: dict, Mu: float, Vu: float):
     """顯示梁設計分析成果摘要"""
     ok      = res['ok']
     phi_Mn  = res['phi_Mn']
-    phi_Vns = res.get('phi_Vns', 0)  # 鋼骨剪力
-    phi_Vnrc = res.get('phi_Vnrc', 0)  # RC剪力
-    phi_Mns = res.get('phi_Mns', 0)  # 鋼骨彎矩貢獻
-    phi_Mnrc = res.get('phi_Mnrc', 0)  # RC彎矩貢獻
-    Vu_s = res.get('Vu_s', 0)  # 鋼骨分擔剪力
-    Vu_rc = res.get('Vu_rc', 0)  # RC分擔剪力
+    phi_Vn  = res['phi_Vn']
     dc_M    = Mu / phi_Mn if phi_Mn > 0 else 0
 
     if ok:
@@ -1205,7 +899,7 @@ def show_beam_summary(res: dict, Mu: float, Vu: float):
     else:
         st.error('❌ **設計不足 — 請下載計算書檢視詳細內容**')
 
-    cols = st.columns(6)
+    cols = st.columns(3)
     with cols[0]:
         c = _dc_color(dc_M)
         tag = '✓ OK' if dc_M <= 1.0 else '✗ NG'
@@ -1214,61 +908,18 @@ def show_beam_summary(res: dict, Mu: float, Vu: float):
                           f'Mu = {Mu:.2f} tf-m　D/C = {dc_M:.3f}　{tag}', c),
                     unsafe_allow_html=True)
     with cols[1]:
-        # 鋼骨彎矩貢獻
-        if phi_Mns > 0:
-            st.markdown(_card('鋼骨彎矩 φMns',
-                              f'{phi_Mns:.2f} tf-m',
-                              f'貢獻 {phi_Mns/phi_Mn*100:.1f}%', '#3498db'),
+        if Vu > 0:
+            dc_V = Vu / phi_Vn if phi_Vn > 0 else 0
+            cv  = _dc_color(dc_V)
+            tag_v = '✓ OK' if dc_V <= 1.0 else '✗ NG'
+            st.markdown(_card('剪力強度 φVn',
+                              f'{phi_Vn:.2f} tf',
+                              f'Vu = {Vu:.2f} tf　D/C = {dc_V:.3f}　{tag_v}', cv),
                         unsafe_allow_html=True)
         else:
-            st.markdown(_card('鋼骨彎矩 φMns', '—', '未計算', '#bbb'),
+            st.markdown(_card('剪力強度', '—', '未輸入 Vu', '#bbb'),
                         unsafe_allow_html=True)
     with cols[2]:
-        if Vu > 0:
-            # 鋼骨剪力檢核
-            dc_Vs = Vu_s / phi_Vns if phi_Vns > 0 else 0
-            cvs = _dc_color(dc_Vs)
-            tag_vs = '✓ OK' if dc_Vs <= 1.0 else '✗ NG'
-            st.markdown(_card(f'鋼骨剪力 φVns={phi_Vns:.1f}tf',
-                              f'Vu_s = {Vu_s:.2f} tf',
-                              f'D/C = {dc_Vs:.3f}　{tag_vs}', cvs),
-                        unsafe_allow_html=True)
-        else:
-            st.markdown(_card('鋼骨剪力 φVns', '—', '未輸入 Vu', '#bbb'),
-                        unsafe_allow_html=True)
-    with cols[3]:
-        if Vu > 0:
-            # RC剪力檢核
-            dc_Vrc = Vu_rc / phi_Vnrc if phi_Vnrc > 0 else 0
-            cvrc = _dc_color(dc_Vrc)
-            tag_vrc = '✓ OK' if dc_Vrc <= 1.0 else '✗ NG'
-            st.markdown(_card(f'RC剪力 φVnrc={phi_Vnrc:.1f}tf',
-                              f'Vu_rc = {Vu_rc:.2f} tf',
-                              f'D/C = {dc_Vrc:.3f}　{tag_vrc}', cvrc),
-                        unsafe_allow_html=True)
-        else:
-            st.markdown(_card('RC剪力 φVnrc', '—', '未輸入 Vu', '#bbb'),
-                        unsafe_allow_html=True)
-    with cols[4]:
-        # 最小鋼筋比檢核
-        rho = res.get('rho', 0)
-        rho_min = res.get('rho_min', 0)
-        ok_rho = res.get('ok_rho', True)
-        # 取得斷面尺寸計算As_min
-        b = res.get('b', 0)
-        d_rc = res.get('d_rc', 0)
-        As_min = rho_min * b * d_rc if b > 0 and d_rc > 0 else 0
-        if rho > 0:
-            rhotxt = f'ρ={rho*100:.3f}%'
-            rcolor = '#27ae60' if ok_rho else '#e74c3c'
-            rtag = f'ρmin={rho_min*100:.3f}% ✓' if ok_rho else f'ρmin={rho_min*100:.3f}% ✗'
-            st.markdown(_card(f'鋼筋比 ρ', rhotxt, f'As_min={As_min:.1f}cm²', rcolor),
-                        unsafe_allow_html=True)
-        else:
-            st.markdown(_card('鋼筋比 ρ', '—', '未計算', '#bbb'),
-                        unsafe_allow_html=True)
-
-    with cols[5]:
         wc   = '#27ae60' if res['wt_ok'] else '#e74c3c'
         wtxt = '✓ 緊密斷面' if res['wt_ok'] else '✗ 非緊密/細長'
         st.markdown(_card('鋼骨寬厚比', wtxt, '依SRC規範第3章', wc),
@@ -1295,7 +946,7 @@ def show_column_summary(res: dict, Pu: float, Mu: float):
         st.error('❌ **設計不足 — 請下載計算書檢視詳細內容**')
 
     # ── 第一列：軸力 / 鋼骨P-M / RC P-M / 疊加彎矩 ───────────
-    cols1 = st.columns(5)
+    cols1 = st.columns(4)
     with cols1[0]:
         c = _dc_color(dc_P)
         tag = '✓ OK' if dc_P <= 1.0 else '✗ NG'
@@ -1324,67 +975,22 @@ def show_column_summary(res: dict, Pu: float, Mu: float):
                           f'{phi_Mn:.2f} tf-m',
                           f'Mu = {Mu:.2f} tf-m　D/C = {dc_M:.3f}　{tag_m}', cm),
                     unsafe_allow_html=True)
-    with cols1[4]:
-        # 鋼筋比檢核
-        rho = res.get('rho', 0)
-        rho_min = res.get('rho_min', 0)
-        ok_rho = res.get('ok_rho', True)
-        b = res.get('b', 0)
-        d_rc = res.get('d_rc', 0)
-        As_min = rho_min * b * d_rc if b > 0 and d_rc > 0 else 0
-        if rho > 0:
-            rcolor = '#27ae60' if ok_rho else '#e74c3c'
-            rtag = f'ρmin={rho_min*100:.3f}% ✓' if ok_rho else f'ρmin={rho_min*100:.3f}% ✗'
-            st.markdown(_card(f'鋼筋比 ρ', f'ρ={rho*100:.3f}%', f'As_min={As_min:.1f}cm² {rtag}', rcolor),
-                        unsafe_allow_html=True)
-        else:
-            st.markdown(_card('鋼筋比 ρ', '—', '未計算', '#bbb'),
-                        unsafe_allow_html=True)
 
-    # ── 第二列：鋼骨剪力 / RC剪力 / 箍筋剪力 / 寬厚比 ───
-    cols2 = st.columns(4)
+    # ── 第二列：剪力強度 / 鋼骨寬厚比 ────────────────────────
+    cols2 = st.columns(2)
     with cols2[0]:
-        phi_Vns_col = res.get('phi_Vns_col', 0)
-        if Vu > 0 and phi_Vns_col > 0:
-            dc_vs = Vu / phi_Vns_col
-            cvs = _dc_color(dc_vs)
-            tag_vs = '✓ OK' if dc_vs <= 1.0 else '✗ NG'
-            st.markdown(_card(f'鋼骨剪力 φVns={phi_Vns_col:.1f}tf',
-                              f'Vu = {Vu:.2f} tf', f'D/C = {dc_vs:.3f} {tag_vs}', cvs),
+        if Vu > 0:
+            cv    = _dc_color(dc_vu)
+            tag_v = '✓ OK' if ok_vu else '✗ NG'
+            st.markdown(_card('剪力強度 φVn',
+                              f'{phi_Vn:.2f} tf',
+                              f'Vu = {Vu:.2f} tf　D/C = {dc_vu:.3f}　{tag_v}', cv),
                         unsafe_allow_html=True)
         else:
-            st.markdown(_card('鋼骨剪力 φVns', '—', '未計算', '#bbb'),
+            st.markdown(_card('剪力強度 φVn',
+                              f'{phi_Vn:.2f} tf',
+                              '未輸入 Vu，剪力強度供參考', '#17a589'),
                         unsafe_allow_html=True)
-    with cols2[1]:
-        phi_Vc_col = res.get('phi_Vc_col', 0)
-        if Vu > 0 and phi_Vc_col > 0:
-            dc_vc = Vu / phi_Vc_col
-            cvc = _dc_color(dc_vc)
-            tag_vc = '✓ OK' if dc_vc <= 1.0 else '✗ NG'
-            st.markdown(_card(f'RC剪力 φVc={phi_Vc_col:.1f}tf',
-                              f'Vu = {Vu:.2f} tf', f'D/C = {dc_vc:.3f} {tag_vc}', cvc),
-                        unsafe_allow_html=True)
-        else:
-            st.markdown(_card('RC剪力 φVc', '—', '未計算', '#bbb'),
-                        unsafe_allow_html=True)
-    with cols2[2]:
-        phi_Vs_col = res.get('phi_Vs_col', 0)
-        if Vu > 0 and phi_Vs_col > 0:
-            dc_vss = Vu / phi_Vs_col
-            cvss = _dc_color(dc_vss)
-            tag_vss = '✓ OK' if dc_vss <= 1.0 else '✗ NG'
-            st.markdown(_card(f'箍筋剪力 φVs={phi_Vs_col:.1f}tf',
-                              f'Vu = {Vu:.2f} tf', f'D/C = {dc_vss:.3f} {tag_vss}', cvss),
-                        unsafe_allow_html=True)
-        else:
-            st.markdown(_card('箍筋剪力 φVs', '—', '未計算', '#bbb'),
-                        unsafe_allow_html=True)
-    with cols2[3]:
-        wt_ok = res.get('wt_ok', True)
-        wc = '#27ae60' if wt_ok else '#e74c3c'
-        wtxt = '✓ 緊密' if wt_ok else '✗ 非緊密'
-        st.markdown(_card('鋼骨寬厚比', wtxt, '依SRC規範第3章', wc),
-                    unsafe_allow_html=True)
     with cols2[1]:
         wc   = '#27ae60' if res['wt_ok'] else '#e74c3c'
         wtxt = '✓ 緊密斷面' if res['wt_ok'] else '✗ 非緊密/細長'
@@ -1451,30 +1057,6 @@ body{{font-family:'Microsoft JhengHei','PingFang TC','Noto Sans TC',sans-serif;
 # ============================================================
 # Streamlit UI
 # ============================================================
-# ── 密碼保護 ─────────────────────────────────────────────
-if 'authenticated' not in st.session_state:
-    st.session_state.authenticated = False
-
-if not st.session_state.authenticated:
-    st.markdown("""
-    <div style="text-align:center; padding:50px;">
-        <h2>🔐 宏利工程顧問公司<br>SRC 梁柱設計程式</h2>
-        <p>請輸入密碼登入</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    password = st.text_input("密碼", type="password", key="login_pwd")
-    if password:
-        if password == "homeli2019":
-            st.session_state.authenticated = True
-            st.rerun()
-        else:
-            st.error("密碼錯誤，請重新輸入")
-    st.stop()
-
-# 登入後顯示
-st.markdown(f'<div style="text-align:right; color:#888; font-size:12px;">🔒 已登入</div>', unsafe_allow_html=True)
-
 st.set_page_config(
     page_title="SRC梁柱設計 - 台灣規範",
     page_icon="🏗️",
@@ -1493,7 +1075,7 @@ body { font-family: 'Microsoft JhengHei', sans-serif; }
 """, unsafe_allow_html=True)
 
 st.title("🏗️ SRC 鋼骨鋼筋混凝土結構設計程式_測試版")
-st.markdown('<h3 style="margin:0">宏利工程顧問有限公司</h3>', unsafe_allow_html=True)
+st.markdown("**宏利工程顧問有限公司**")
 st.markdown(f"**依據：鋼骨鋼筋混凝土構造設計規範與解說（Taiwan SRC Code）** ｜ 日期：{datetime.date.today().strftime('%Y-%m-%d')}")
 st.markdown("---")
 
@@ -1517,10 +1099,6 @@ with st.sidebar:
     fc = st.selectbox("混凝土 fc' (kgf/cm²)", [210, 280, 350, 420], index=1)
     mat = Material(fy_steel=fy_steel, fy_rebar=fy_rebar, fc=fc)
     st.info(f"Ec = 15,000×√{fc} = {mat.Ec:.0f} kgf/cm²")
-    st.markdown("---")
-    st.markdown("### 設計設定")
-    design_type = st.radio("設計類型", ["一般設計 (λp)", "耐震設計 (λpd)"], horizontal=True)
-    is_seismic = "耐震" in design_type
     st.markdown("---")
     st.markdown("**鋼筋斷面積表**")
     for n, a in REBAR_DB.items():
@@ -1562,7 +1140,7 @@ with tab_beam:
         Av_b = float(stir_legs) * REBAR_DB[stir_sz]
         st.caption(f"Av = {Av_b:.2f} cm²")
     with c2:
-        st.markdown("### 斷面配筋示意圖")
+        st.markdown("**斷面配筋示意圖（圖C5.2.1）**")
         _fig, _ax = plt.subplots(figsize=(3, 3.5))
         draw_beam_section(_fig, _ax, b_stl, bw, bh, bc, int(top_n), int(bot_n), top_s, bot_s)
         plt.tight_layout(pad=0.2)
@@ -1616,7 +1194,7 @@ with tab_col:
         Av_c = float(c_stir_legs) * REBAR_DB[c_stir_sz]
         st.caption(f"Av = {Av_c:.2f} cm²（{c_stir_legs}支 {c_stir_sz}）")
     with c2:
-        st.markdown("### 斷面配筋示意圖")
+        st.markdown("**斷面配筋示意圖（圖C6.2.1）**")
         _fig2, _ax2 = plt.subplots(figsize=(3, 3))
         draw_column_section(_fig2, _ax2, c_stl, cw, ch, cc, int(c_num), c_siz)
         plt.tight_layout(pad=0.2)
@@ -1667,18 +1245,10 @@ with tab_pm:
                    label=f'設計點 ({pm_Pu:.0f} tf, {pm_Mu:.0f} tf-m)')
         ax.axhline(0, color='gray', ls='--', lw=0.8)
         ax.axvline(0, color='gray', ls='--', lw=0.8)
-        # 設定中文字體
-        try:
-            from matplotlib.font_manager import FontProperties
-            font_cn = FontProperties(family=['Microsoft JhengHei', 'PingFang TC', 
-                                             'Noto Sans CJK TC', 'WenQuanYi Zen Hei', 
-                                             'DejaVu Sans'])
-        except Exception:
-            font_cn = None
-        ax.set_xlabel('彎矩 M (tf-m)', fontsize=12, fontproperties=font_cn)
-        ax.set_ylabel('軸力 P (tf)', fontsize=12, fontproperties=font_cn)
-        ax.set_title(f'SRC 柱 P-M 互制曲線\n{pm_stl.name} / {pm_b}×{pm_h}cm / {pm_n}-{pm_s}', fontsize=12, fontproperties=font_cn)
-        ax.legend(fontsize=10, prop=font_cn)
+        ax.set_xlabel('彎矩 M (tf-m)', fontsize=12)
+        ax.set_ylabel('軸力 P (tf)', fontsize=12)
+        ax.set_title(f'SRC 柱 P-M 互制曲線\n{pm_stl.name} / {pm_b}×{pm_h}cm / {pm_n}-{pm_s}', fontsize=12)
+        ax.legend(fontsize=10)
         ax.grid(alpha=0.3)
         st.pyplot(fig)
 
