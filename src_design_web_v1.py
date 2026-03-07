@@ -5,12 +5,17 @@ SRC 鋼骨鋼筋混凝土結構設計程式
 """
 import streamlit as st
 import math
+import datetime
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle, Circle, Patch
 import numpy as np
 from dataclasses import dataclass
+
+# 中文字體設定 - 使用系統字體
+plt.rcParams['font.sans-serif'] = ['PingFang TC', 'Heiti TC', 'Apple System', 'SimHei', 'DejaVu Sans']
+plt.rcParams['axes.unicode_minus'] = False
 
 # ============================================================
 # 材料資料類別

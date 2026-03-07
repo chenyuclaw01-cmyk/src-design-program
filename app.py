@@ -11,6 +11,10 @@ SRC 鋼骨鋼筋混凝土結構設計程式 (Streamlit App)
 import streamlit as st
 import math
 import sys
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import numpy as np
 sys.path.insert(0, '.')
 
 from src_design import (
@@ -125,6 +129,62 @@ if design_type == "柱設計":
         
         st.metric("總檢核", "✓ 安全" if pm_result['is_safe'] else "✗ 不安全",
                  delta_color="normal" if pm_result['is_safe'] else "inverse")
+        
+        # PM 曲線
+        st.divider()
+        st.subheader("📈 PM 曲線 (軸力-彎矩互制圖)")
+        
+        if st.button("計算 PM 曲線"):
+            with st.spinner("計算中..."):
+                # 計算 PM 曲線
+                pm_curve_result = col.calculate_pm_curve(debug=True)
+                
+                # 繪圖
+                fig, ax = plt.subplots(figsize=(10, 8))
+                
+                pm_points = pm_curve_result['pm_points']
+                P_values = [p[0] for p in pm_points]
+                M_values = [p[1] for p in pm_points]
+                
+                ax.plot(M_values, P_values, 'b-', linewidth=2, label='PM 曲線')
+                ax.axhline(y=0, color='k', linestyle='-', linewidth=0.5)
+                ax.axvline(x=0, color='k', linestyle='-', linewidth=0.5)
+                
+                # 標記設計點
+                ax.plot(Mu, Pu, 'ro', markersize=12, label=f'設計點 ({Mu:.1f}, {Pu:.1f})')
+                
+                # 標記關鍵點
+                key = pm_curve_result['key_points']
+                ax.plot(0, key['Pmax'], 'g^', markersize=10, label=f'純壓 Pmax={key["Pmax"]:.1f} tf')
+                ax.plot(key['Mmax'], 0, 'ms', markersize=10, label=f'純彎 Mmax={key["Mmax"]:.1f} tf-m')
+                
+                ax.set_xlabel('彎矩 M (tf-m)', fontsize=12)
+                ax.set_ylabel('軸力 P (tf)', fontsize=12)
+                ax.set_title('SRC 柱 PM 互制圖', fontsize=14)
+                ax.grid(True, alpha=0.3)
+                ax.legend(loc='upper right')
+                ax.invert_yaxis()  # 軸力向下為正（傳統習慣）
+                
+                st.pyplot(fig)
+                
+                # 顯示關鍵點數據
+                st.write("### 關鍵點資料")
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("純壓 Pmax", f"{key['Pmax']:.1f} tf")
+                with col2:
+                    st.metric("純彎 Mmax", f"{key['Mmax']:.1f} tf-m")
+                with col3:
+                    st.metric("平衡點 P", f"{key['P_bal']:.1f} tf")
+                with col4:
+                    st.metric("平衡點 M", f"{key['M_bal']:.1f} tf-m")
+                
+                # 顯示曲線數據
+                with st.expander("查看 PM 曲線數據"):
+                    st.write("| 軸力 P (tf) | 彎矩 M (tf-m) |")
+                    st.write("|------------|---------------|")
+                    for P, M in pm_points[:20]:
+                        st.write(f"| {P:.1f} | {M:.2f} |")
         
         # 剪力設計
         st.divider()
