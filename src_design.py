@@ -602,6 +602,303 @@ class SRCColumn(SRCSection):
             'ratio_rc': stiff['ratio_rc']
         }
     
+    def calculate_pm_curve(
+        self,
+        rebar_positions: list = None,
+        num_points: int = 30,
+        debug: bool = False
+    ) -> dict:
+        """
+        計算 SRC 柱 PM 曲線（軸力-彎矩互制圖）
+        
+        使用應變相容法（Strain Compatibility Method）：
+        - 混凝土最大壓應變 εcu = 0.003
+        - 鋼材應變與混凝土相同（握裹良好）
+        - 鋼材應力-應變關係為理想彈塑性
+        
+        參考：鋼骨鋼筋混凝土構造設計規範與解說 第七章
+        
+        參數：
+        - rebar_positions: 鋼筋位置列表 [y1, y2, y3, ...] (cm from top)
+                           預設為 [cover, h/2, h-cover] 三層
+        - num_points: PM 曲線的計算點數
+        - debug: 是否顯示除錯資訊
+        
+        回傳：
+        - pm_points: [(P, M), ...] 清單，P 為軸力(tf)，M 為彎矩(tf-m)
+        - key_points: 關鍵點資訊
+        """
+        import numpy as np
+        
+        mat = self.mat
+        fc = mat.fc           # kgf/cm²
+        fy_steel = mat.fy_steel  # kgf/cm²
+        fy_rebar = mat.fy_rebar  # kgf/cm²
+        Es = mat.Es           # kgf/cm²
+        eps_cu = 0.003        # 混凝土極限壓應變
+        
+        # 斷面幾何 (統一使用 cm 單位)
+        b = self.b            # cm (寬度)
+        h = self.h            # cm (深度)
+        cover = self.cover   # cm
+        
+        # 鋼骨幾何 (mm → cm)
+        steel = self.steel
+        d_steel = steel['d'] / 10    # cm
+        bf_steel = steel['bf'] / 10  # cm
+        tf_steel = steel['tf'] / 10  # cm
+        tw_steel = steel['tw'] / 10  # cm
+        A_steel = steel['A']         # cm²
+        
+        # 鋼骨斷面位置 (從頂面算起)
+        # 上翼板
+        y_steel_top = tf_steel / 2
+        # 下翼板
+        y_steel_bot = d_steel - tf_steel / 2
+        # 腹板 (頂部與底部)
+        y_web_top = tf_steel
+        y_web_bot = d_steel - tf_steel
+        
+        if debug:
+            print(f"\n=== SRC PM 曲線計算 ===")
+            print(f"  混凝土斷面: {b} x {h} cm")
+            print(f"  鋼骨斷面: {steel} cm")
+            print(f"  鋼骨尺寸: {d_steel} x {bf_steel} cm")
+        
+        # 鋼筋位置設定
+        if rebar_positions is None:
+            # 預設：三層鋼筋（頂、中、底）
+            rebar_positions = [
+                cover + 2,      # 頂層鋼筋
+                h / 2,          # 中層鋼筋
+                h - cover - 2   # 底層鋼筋
+            ]
+        
+        # 鋼筋面積（假設每層等面積，總面積 self.As）
+        n_rebar = len(rebar_positions)
+        As_layer = self.As / n_rebar  # cm² 每層
+        
+        # 混凝土區域划分
+        # 總高度 h cm，分為多個區域：
+        # 1. 鋼骨上翼板區域
+        # 2. 鋼骨腹板區域
+        # 3. 鋼骨下翼板區域
+        # 4. 純混凝土區域
+        
+        def get_concrete_regions(c: float) -> list:
+            """
+            根據中性軸深度 c 計算混凝土分區
+            c: 中性軸深度 (cm from top)
+            回傳: [(y_top, y_bottom, width), ...] 清單
+            """
+            regions = []
+            
+            # 鋼骨內部不計算混凝土（被鋼骨填充）
+            # 混凝土只在外側
+            
+            # 左側純混凝土區 (寬度 b，位置在鋼骨左側)
+            # 鋼骨左邊緣
+            steel_left = (b - bf_steel) / 2
+            steel_right = (b + bf_steel) / 2
+            
+            # 左側混凝土區
+            if steel_left > 0:
+                # 上部
+                y1 = min(c, tf_steel)
+                if y1 > 0:
+                    regions.append((0, y1, steel_left))
+                # 中部（鋼骨腹板區）
+                y2 = min(c, y_web_bot)
+                y3 = max(c, y_web_top) if c > y_web_top else y_web_top
+                if y2 > y3:
+                    regions.append((y3, y2, steel_left))
+                # 下部
+                if c > d_steel:
+                    regions.append((d_steel, c, steel_left))
+            
+            # 右側純混凝土區
+            if steel_right < b:
+                # 上部
+                y1 = min(c, tf_steel)
+                if y1 > 0:
+                    regions.append((0, y1, b - steel_right))
+                # 中部
+                y2 = min(c, y_web_bot)
+                y3 = max(c, y_web_top) if c > y_web_top else y_web_top
+                if y2 > y3:
+                    regions.append((y3, y2, b - steel_right))
+                # 下部
+                if c > d_steel:
+                    regions.append((d_steel, c, b - steel_right))
+            
+            return regions
+        
+        def calculate_strain_at_y(y: float, c: float) -> float:
+            """計算位置 y 處的應變"""
+            if y < c:
+                # 壓應變
+                return eps_cu * (c - y) / c
+            else:
+                # 拉應變
+                if c < 0.1:  # 避免除以接近零
+                    return eps_cu * 10  # 設定最大拉應變
+                return eps_cu * (y - c) / c
+        
+        def get_steel_stress(y: float, c: float, fy: float) -> float:
+            """計算位置 y 處的鋼材應力"""
+            eps = calculate_strain_at_y(y, c)
+            # 理想彈塑性模型
+            if eps >= 0:  # 壓
+                return min(Es * eps, fy)
+            else:  # 拉
+                return max(Es * eps, -fy)
+        
+        def calculate_pm_at_c(c: float) -> tuple:
+            """
+            計算指定中性軸深度 c 對應的 P, M
+            c: 中性軸深度 (cm)
+            回傳: (P_tf, M_tf_m)
+            """
+            # 1. 鋼骨貢獻
+            # 鋼骨分為：上翼板、腹板、下翼板
+            
+            # 上翼板
+            A_top = bf_steel * tf_steel
+            f_top = get_steel_stress(y_steel_top, c, fy_steel)
+            P_steel_top = A_top * f_top  # kgf
+            M_steel_top = P_steel_top * (y_steel_top - h/2)  # kgf-cm
+            
+            # 下翼板
+            A_bot = bf_steel * tf_steel
+            f_bot = get_steel_stress(y_steel_bot, c, fy_steel)
+            P_steel_bot = A_bot * f_bot
+            M_steel_bot = P_steel_bot * (y_steel_bot - h/2)
+            
+            # 腹板
+            A_web = tw_steel * (d_steel - 2*tf_steel)
+            # 腹板應力取平均
+            f_web_avg = get_steel_stress((y_web_top + y_web_bot)/2, c, fy_steel)
+            P_steel_web = A_web * f_web_avg
+            M_steel_web = P_steel_web * ((y_web_top + y_web_bot)/2 - h/2)
+            
+            P_steel = P_steel_top + P_steel_bot + P_steel_web
+            M_steel = M_steel_top + M_steel_bot + M_steel_web
+            
+            # 2. 鋼筋貢獻
+            P_rebar = 0
+            M_rebar = 0
+            for y_rebar in rebar_positions:
+                f_rebar = get_steel_stress(y_rebar, c, fy_rebar)
+                P_layer = As_layer * f_rebar
+                M_layer = P_layer * (y_rebar - h/2)
+                P_rebar += P_layer
+                M_rebar += M_layer
+            
+            # 3. 混凝土貢獻
+            # 使用等效矩形應力分佈
+            beta1 = 0.85 if fc <= 280 else max(0.65, 0.85 - 0.008*(fc-280))
+            a = beta1 * c  # 等效應力區塊深度
+            
+            P_conc = 0
+            M_conc = 0
+            
+            # 計算各混凝土區域
+            regions = get_concrete_regions(c)
+            for y_top, y_bot, width in regions:
+                # 該區域的混凝土面積
+                A_region = width * (y_bot - y_top)  # cm²
+                
+                # 該區域的平均應變（簡化：取中間點）
+                y_mid = (y_top + y_bot) / 2
+                eps = calculate_strain_at_y(y_mid, c)
+                
+                # 混凝土應力（線性模型，壓應力為正）
+                if eps >= 0:
+                    # 壓區 - 使用應力塊
+                    f_conc = 0.85 * fc
+                else:
+                    # 拉區 - 忽略混凝土抗拉
+                    f_conc = 0
+                
+                P_region = A_region * f_conc
+                M_region = P_region * (y_mid - h/2)
+                
+                P_conc += P_region
+                M_conc += M_region
+            
+            # 總軸力與彎矩
+            P_total = P_steel + P_rebar + P_conc  # kgf
+            M_total = M_steel + M_rebar + M_conc  # kgf-cm
+            
+            return (P_total / 1000, M_total / 1e6)  # tf, tf-m
+        
+        # 計算 PM 曲線
+        pm_points = []
+        
+        # 中性軸掃描範圍
+        c_min = 0.5    # cm（幾乎全截面受拉）
+        c_max = h * 3  # cm（全截面受壓）
+        
+        c_values = np.linspace(c_min, c_max, num_points)
+        
+        for c in c_values:
+            P, M = calculate_pm_at_c(c)
+            pm_points.append((P, M))
+        
+        # 排序（按軸力從大到小）
+        pm_points.sort(key=lambda x: -x[0])
+        
+        # 關鍵點計算
+        # 點1: 純壓 (Pmax)
+        Pmax_conc = 0.85 * fc * (b * h - A_steel) / 1000  # tf
+        Pmax_steel = fy_steel * A_steel / 1000
+        Pmax = Pmax_conc + Pmax_steel + fy_rebar * self.As / 1000
+        
+        # 點2: 純彎 (Mmax) - 近似計算
+        # 忽略軸力影響的純彎矩
+        # Mmax ≈ 鋼骨貢獻 + RC 貢獻
+        Z_s = steel['Zx']  # cm³
+        Mns = Z_s * fy_steel / 1e6  # tf-m
+        
+        # RC 部分
+        d_rc = h - cover
+        a_rc = self.As * fy_rebar / (0.85 * fc * b)
+        Mnrc = self.As * fy_rebar * (d_rc - a_rc/2) / 1e6
+        Mmax = Mns + Mnrc
+        
+        # 點3: 平衡點 (近似)
+        # 當鋼骨降伏且混凝土壓碎的瞬間
+        c_b = d_steel * eps_cu / (eps_cu + fy_steel/Es) if fy_steel/Es > 0 else d_steel * 0.5
+        P_bal, M_bal = calculate_pm_at_c(c_b)
+        
+        key_points = {
+            'Pmax': Pmax,  # 純壓 tf
+            'Mmax': Mmax,  # 純彎 tf-m
+            'P_bal': P_bal,
+            'M_bal': M_bal
+        }
+        
+        if debug:
+            print(f"\n  鋼骨斷面積: {A_steel:.2f} cm²")
+            print(f"  鋼筋总面积: {self.As:.2f} cm²")
+            print(f"  鋼筋位置: {rebar_positions} cm")
+            print(f"\n  關鍵點:")
+            print(f"    純壓 Pmax = {Pmax:.1f} tf")
+            print(f"    純彎 Mmax = {Mmax:.1f} tf-m")
+            print(f"    平衡點 ({P_bal:.1f}, {M_bal:.1f})")
+        
+        return {
+            'pm_points': pm_points,
+            'key_points': key_points,
+            'rebar_positions': rebar_positions,
+            'steel_geometry': {
+                'd': d_steel,
+                'bf': bf_steel,
+                'tf': tf_steel,
+                'tw': tw_steel
+            }
+        }
+    
     def design_shear_strength(self, Vu: float, Pu: float = 0, debug: bool = False) -> dict:
         """
         設計剪力強度
